@@ -1,7 +1,6 @@
 from ctypes import *
 from numpy.ctypeslib import ndpointer
 import numpy as np
-import os
 from numba import cuda
 
 
