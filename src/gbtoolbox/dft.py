@@ -2,6 +2,7 @@ from ctypes import *
 from numpy.ctypeslib import ndpointer
 import numpy as np
 from numba import cuda
+import math as math
 
 
 misc_wrapper = CDLL(r'libft.so')
