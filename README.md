@@ -7,8 +7,10 @@ Tools related to computing generlization error bounds for machine-learning appli
 
 For now, this will not be placed on PyPi. So the following should be performed to manually install. 
 
-The package requirements are listed in the src/gbtoolbox/requirements.txt file. The exact versions are probably not necessary.
+Install the build package
 
+    pip install build
+    
 First, from the same directory as this README, build the sdist and wheel using the following command.
 
     python -m build
