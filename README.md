@@ -32,5 +32,9 @@ You may want to add the previous export statement to your ~/.bashrc file, otherw
 
 
 
+# CUDA
+There is a CUDA version of a naively implemented DFT function that runs much faster than the C version. The following should be helpful for getting set up to run the CUDA version
 
+    conda install pytorch torchvision torchaudio pytorch-cuda=11.6 cuda-toolkit=11.6 numba python-build scipy -c pytorch -c nvidia
+    
 
