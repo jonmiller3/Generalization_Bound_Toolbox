@@ -37,6 +37,29 @@ class TestSpecNormMethods(unittest.TestCase):
         rel_er = np.abs(sne-sng)/sng
         msg = f'analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,1e-1,msg=msg)
+
+    def test_opt_bound(self):
+
+        # This test only checks if the function runs and produces an answer
+        # the right form. It doesn't check for a correct answer
+        N = 100
+        d = 2        
+        m = 60
+        trials = 3
+        Nd = 8
+        B = 2.5        
+
+        U = np.random.random
+        x = U((N,d))
+        y = U((N,1))
+
+        w = U((d,m))
+        b = U((1,m))
+        ow = U((1,m))
+        nn = bounds.TwoLayerNetwork(w,b,ow)
+        
+        optb = bounds.est_opt_bound(x,y,m,trials,Nd,B,nn)
+        print(f'Optimization error : {optb:5.2f}')
     
 if __name__ == '__main__':
     unittest.main()

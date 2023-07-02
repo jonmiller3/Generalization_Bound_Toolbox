@@ -24,7 +24,7 @@ def gen_stacked_equispaced_nd_grid(N, domain: np.array, indexing='xy'):
               interval-defined domain for that dimension, where d is the number of dimensions
             indexing: Cartesian (‘xy’, default) or matrix (‘ij’) indexing of output.
         Returns:
-            N**d x d stacked form of the grid
+            N**d x d stacked form of the grid, and unstacked version
     '''    
     x = [np.linspace(dm[0],dm[1],N,endpoint=False) for dm in domain]
     X = np.meshgrid(*x, indexing=indexing) 
