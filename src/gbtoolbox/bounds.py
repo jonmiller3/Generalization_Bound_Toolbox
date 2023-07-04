@@ -216,7 +216,7 @@ class TwoLayerNetwork:
     
 
 
-def est_opt_bound(x,y,m,trials,Nd,B,nn,use_cuda=False,cuda_blocks=64,cuda_threads=64):
+def est_bounds(x,y,m,trials,Nd,B,nn,use_cuda=False,cuda_blocks=64,cuda_threads=64):
     '''
     Estimate the optimization error bound of a single hidden layer network
     for a function described with input and output data
@@ -259,21 +259,31 @@ def est_opt_bound(x,y,m,trials,Nd,B,nn,use_cuda=False,cuda_blocks=64,cuda_thread
     # underlying distribution, but can never cover the gigantic set of possible
     # value for many problems. 
 
-    avg_y_error = 0
+    opt_bound = 0
     for tr in range(trials):
         t_nn = p.gen_nn(m)
         y_theta = t_nn.evaluate(x)
         er = np.mean((y_theta-y_thetap)**2)
-        avg_y_error += er
-    avg_y_error /= trials
+        opt_bound += er
+    opt_bound /= trials
 
-    return avg_y_error
+    two_pi = 2.0*np.pi
+    spec_norm = est_spec_norm(f*two_pi,yf,B*two_pi)
+    ap_bound = apriori_bound(spec_norm,m,N,d,0.99)
+    tot_bound = ap_bound+opt_bound
+
+
+    return tot_bound,ap_bound,opt_bound
         
+
 
 def apriori_bound(spectral_norm: float, width: float, sample_size: float, dimension: float,
                 confidence: float):
     '''
     Calculate the bound for the x-values given using derivation based on E's paper
+    Estimate the bound on the expected square error of the output of the neural
+    network found by optimizing the path-norm regularized loss of E et al. That is, the 
+    error is a combination of approximaton and estimation error. 
 
     Args:
         spectral_norm: spectral norm of the function
@@ -303,8 +313,14 @@ def apriori_bound(spectral_norm: float, width: float, sample_size: float, dimens
     # c = np.pi**2/6
     # delta = 1 - confidence
     # greek_lambda = 4*np.sqrt(2*np.log(2*dimension)/sample_size)
+
+    # TLR, the bounds below seems to be approximations to eqs. 152 and 153 from
+    # interim report. The approximation is that gamma is >> 1. 
     # theta_bound = (3*spectral_norm**2/(width*greek_lambda) + 4*spectral_norm + 1/(2*greek_lambda)*
     #                np.sqrt((2*np.log(8*c*spectral_norm**2/delta))/sample_size))
+
+    # TLR, There seems to be another assumption that theta_bound >> 1. Both assumptions
+    # seem reasonable.
     # return 3*spectral_norm**2/width + 4*greek_lambda*spectral_norm + 1/2*np.sqrt(2*np.log(
     #        8*c*spectral_norm**2/delta)/sample_size) + 1/2*np.sqrt(2*np.log(
     #        2*c*theta_bound**2/delta)/sample_size)
