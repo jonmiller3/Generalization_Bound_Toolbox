@@ -113,7 +113,6 @@ def dft_on_vector(x,y,u,w):
     uTx = np.matmul(x,u).T    
     return np.sum(y.T*np.exp(-1j*w*uTx),axis=1)[:,None]
 
-
 def nu_sigma_dft(x: np.array, y: np.array, f: np.array):
     '''Directly computes in the DFT for non-uniformly sampled inputs
        and non-uniformly sampled frequency vectors
@@ -154,9 +153,6 @@ def nu_sigma_dft(x: np.array, y: np.array, f: np.array):
 
     return yf
 
-
-
-
 @cuda.jit
 def nu_dft_core(x, y, w, yfr,yfi):
     '''core routine for computing DFT on arbitrary input data. Not generally a user call.
@@ -186,7 +182,7 @@ def nu_dft_core(x, y, w, yfr,yfi):
         yfr[i] = c
         yfi[i] = s
 
-def nu_dft_cuda(x: np.array, y: np.array, f: np.array,b = 2, th = 64, faster=False) -> np.array:
+def nu_dft_cuda(x: np.array, y: np.array, f: np.array,b = 2, th = 64) -> np.array:
     '''Same as nu_dft, but implemented to use a CUDA GPU. This variant can be 100x faster than
        the nu_dft_fast variant. 
        Args:

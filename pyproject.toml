@@ -18,10 +18,10 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-  "numpy=1.23.2",
-  "numba=0.57.0",
-  "scipy=1.9.1",
-  "geomloss=0.2.6",
+  "numpy==1.23.2",
+  "numba==0.57.0",
+  "scipy==1.9.1",
+  "geomloss==0.2.6",
 ]
 
 [project.urls]

@@ -174,10 +174,116 @@ def path_norm_2layer(weights1,biases1,weights2,bias2=0):
     p_norm = np.sum(np.abs(weights2)*(wnorm+biases1))+bias2
     return p_norm
 
-def error_bound(spectral_norm: float, width: float, sample_size: float, dimension: float,
+
+class TwoLayerNetwork:
+    def __init__(self, inner_weights, inner_biases, outer_weights):   
+        '''
+        Initialize two layer network (one hidden layer). A two layer network is of
+        the form \sum_i c_i\sigma(w_i^Tx+b_i)
+
+        Args:
+
+            inner_weights - d x M  array representing M d-dimensional weigths w_i
+            inner_biases - 1 x M array representing scalar biases b_i
+            outer_weights - 1 x M array representing scalar weights c_i
+        '''             
+        self.w = inner_weights
+        self.b = inner_biases
+        self.c = outer_weights
+    
+    def relu(self, x):
+        return np.maximum(0,x)
+    
+    def evaluate(self,x):           
+        '''
+        Evaluate the network at a set of inputs
+        Args:
+            x: Nxd array of N d-dimensional samples
+        Return:
+            A length N array of outputs
+        ''' 
+        y = np.sum(self.c*self.relu(x@self.w+self.b),axis=1)
+        return y
+    
+    def path_norm(self):
+        '''
+        Calculate the path norm of the network
+        '''
+
+        wnorms = np.sum(np.abs(self.w),axis=0) # 1-norms of weight vectors
+        p_norm = np.sum(np.abs(self.c)*(wnorms+np.abs(self.b)))
+        return p_norm
+    
+
+
+def est_bounds(x,y,m,trials,Nd,B,nn,use_cuda=False,cuda_blocks=64,cuda_threads=64):
+    '''
+    Estimate the optimization error bound of a single hidden layer network
+    for a function described with input and output data
+    Args:
+        x: Nxd array representing N samples of d-dimensional input
+        y: the corresponding function outputs
+        m: the number of nodes of the hidden layer
+        trials: Number of trials to pull m nodes from E pdf
+        Nd: number of frequencies per dimension
+        B: bandwidth in each frequency dimension (assumed the same for each dimension)
+        nn: trained two-layer network
+        use_cuda: use a CUDA enabled variant of the DFT
+        cuda_blocks: number of CUDA blocks to use
+        cuda_threads: number of CUDA threads to use
+    Return:
+        An estimate of the error between an ideally (theorectical) trained network and a real network
+        
+    '''
+    [N,d] = x.shape
+
+
+    f,_ = mt.gen_stacked_equispaced_nd_grid(Nd,np.array([[-B/2,B/2]]*d))
+    if use_cuda:
+        yf = dft.nu_dft_cuda(x,y,f,cuda_blocks,cuda_threads)
+    else:
+        yf = dft.nu_dft_fast(x,y,f)
+
+    p = E_pdf(yf,f.T*np.pi*2.0)
+
+    y_thetap = nn.evaluate(x)
+    
+    # randomly pull sets of parameters from the estimated distribution
+    # does randomly pulling actually make sense? Should it not be more valid to use the values
+    # of the distribution directly. 
+
+    # Note that each calculation in the loop below is itself an estimate, since
+    # what is desired is the expected value of (f1(x)-f2(x))^2, which is
+    # equivalent to the pdf weighted integral of the squared error. We only
+    # have a finite set of samples, x. Those x are presumed to represent the
+    # underlying distribution, but can never cover the gigantic set of possible
+    # value for many problems. 
+
+    opt_bound = 0
+    for tr in range(trials):
+        t_nn = p.gen_nn(m)
+        y_theta = t_nn.evaluate(x)
+        er = np.mean((y_theta-y_thetap)**2)
+        opt_bound += er
+    opt_bound /= trials
+
+    two_pi = 2.0*np.pi
+    spec_norm = est_spec_norm(f*two_pi,yf,B*two_pi)
+    ap_bound = apriori_bound(spec_norm,m,N,d,0.99)
+    tot_bound = ap_bound+opt_bound
+
+
+    return tot_bound,ap_bound,opt_bound
+        
+
+
+def apriori_bound(spectral_norm: float, width: float, sample_size: float, dimension: float,
                 confidence: float):
     '''
     Calculate the bound for the x-values given using derivation based on E's paper
+    Estimate the bound on the expected square error of the output of the neural
+    network found by optimizing the path-norm regularized loss of E et al. That is, the 
+    error is a combination of approximaton and estimation error. 
 
     Args:
         spectral_norm: spectral norm of the function
@@ -207,8 +313,14 @@ def error_bound(spectral_norm: float, width: float, sample_size: float, dimensio
     # c = np.pi**2/6
     # delta = 1 - confidence
     # greek_lambda = 4*np.sqrt(2*np.log(2*dimension)/sample_size)
+
+    # TLR, the bounds below seems to be approximations to eqs. 152 and 153 from
+    # interim report. The approximation is that gamma is >> 1. 
     # theta_bound = (3*spectral_norm**2/(width*greek_lambda) + 4*spectral_norm + 1/(2*greek_lambda)*
     #                np.sqrt((2*np.log(8*c*spectral_norm**2/delta))/sample_size))
+
+    # TLR, There seems to be another assumption that theta_bound >> 1. Both assumptions
+    # seem reasonable.
     # return 3*spectral_norm**2/width + 4*greek_lambda*spectral_norm + 1/2*np.sqrt(2*np.log(
     #        8*c*spectral_norm**2/delta)/sample_size) + 1/2*np.sqrt(2*np.log(
     #        2*c*theta_bound**2/delta)/sample_size)
@@ -253,10 +365,12 @@ _gen_ztw.argtypes = [
     ndpointer(np.float64, flags="C_CONTIGUOUS"),# zv
     ndpointer(np.float64, flags="C_CONTIGUOUS"),# wv
     ndpointer(np.float64, flags="C_CONTIGUOUS"),# tv
+    ndpointer(np.float64, flags="C_CONTIGUOUS"),# sv
     ndpointer(np.float64, flags="C_CONTIGUOUS"),# w
     ndpointer(np.float64, flags="C_CONTIGUOUS"),# wftm
     ndpointer(np.float64, flags="C_CONTIGUOUS"),# wfta
-    ndpointer(np.float64, flags="C_CONTIGUOUS") # magw
+    ndpointer(np.float64, flags="C_CONTIGUOUS")# magw
+    
 ]
 
 class E_pdf:
@@ -334,23 +448,29 @@ class E_pdf:
         zv = np.zeros(m)
         tv = np.zeros(m)
         wv = np.zeros((d,m)) 
+        sv = np.zeros(m)
         cnt = 0
         while cnt < m:
             t = np.random.random()
             z = np.random.randint(0,2)*2.0-1.0
             w_ind = np.random.randint(k)
-            p = wftm[w_ind]*np.abs(np.cos(magw[w_ind]*t-z*b[w_ind]))            
+            tmp = np.cos(magw[w_ind]*t-z*b[w_ind])
+            p = wftm[w_ind]*np.abs(tmp)            
             
             chance = np.random.random()
             if chance < p:
                 zv[cnt] = z
                 tv[cnt] = t
                 wv[:,cnt] = w[:,w_ind]
+                sv[cnt] = -np.sign(tmp)
                 cnt +=1
 
-        return zv,tv,wv
+        return zv,tv,wv,sv
 
     def gen_ztw_c(self,m):
+        '''
+        Same thing as gen_ztw, but implemented using c and far faster.
+        '''
         d = self.w_f.shape[0]
         k = self.w_f.shape[1]
         magw = self.magw_f
@@ -362,12 +482,27 @@ class E_pdf:
         zv = np.zeros(m)
         tv = np.zeros(m)
         wv = np.zeros((d,m))
+        sv = np.zeros(m)
         wt = np.copy(self.w_f.T,order='C').flatten()
 
-        _gen_ztw(m,d,k,zv,wv,tv,wt,wftm,b,magw)
+        _gen_ztw(m,d,k,zv,wv,tv,sv,wt,wftm,b,magw)
 
-        return zv,tv,wv
+        return zv,tv,wv,sv
 
+    def gen_nn(self,m):        
+        '''
+        Generate a two-layer neural network via sampling the PDF
+        Args:
+            m: number of nodes in hidden layer
+        Return
+            A TwoLayerNetwork object
+        '''
+        z,t,w,s=self.gen_ztw_c(m) # z,t, and w comprise the parameters vector theta used in math descriptions
+        sw = np.sum(np.abs(w),axis=0)[None,:]
+        nw = w*(z*(1/sw))        
+        nn = TwoLayerNetwork(nw,-t,s)
+        return nn
+        
 def wasserstein_metric(samples_a: np.array, samples_b: np.array) -> float:
     '''Estimates the d-dimensional Wasserstein (2) metric between two distributions given samples
        from each distribution. That is, what is calculated is the Wasserstein metric between the
