@@ -11,7 +11,10 @@ def time_it(f,xg,yg,fg,blocks=None,threads=None,approx=False):
         dt = time.time()-t1
         print(f'{f.__name__} time : {dt}')
     else:
-        yf = f(xg,yg,fg,blocks,threads,approx)
+        # JAM, we should actually check if it is cuda directly
+        yf = f(xg,yg,fg,blocks,threads)
+        if approx:
+            yf = yf[dft.threshold_mask(yf,x.shape[0],threshold)]
         dt = time.time()-t1
         print(f'{f.__name__}[{blocks}][{threads}](approx={approx}) time : {dt}')
 

@@ -27,6 +27,21 @@ _nu_dft_e.argtypes = [ndpointer(np.float64, flags="C_CONTIGUOUS"),
     ndpointer(np.complex128, flags="C_CONTIGUOUS"),
 ]
 
+def threshold_mask(yf: np.array, ns: int, th: float) -> np.array:
+    ''' Applies the threshold for approximate FT based on samplesize and
+        threshold multiplier.
+        
+    Args:
+        yf: Fourier transform coefficients
+        ns: Number of samples
+        th: threshold
+        
+    '''
+    yf_max = np.max(np.abs(yf))
+    yf_threshold = th*yf_max/np.sqrt(ns)
+    mask = np.abs(yf) > yf_threshold
+    return mask
+
 def nu_dft_fast(x: np.array, y: np.array, f: np.array) -> np.array:
     '''Same as nu_dft, but implemented in c. It's 2-3 times faster but fundamentally
     an order n*m operation. You must build the c version using the included Makefile.
@@ -182,7 +197,7 @@ def nu_dft_core(x, y, w, yfr,yfi):
         yfr[i] = c
         yfi[i] = s
 
-def nu_dft_cuda(x: np.array, y: np.array, f: np.array,b = 2, th = 64) -> np.array:
+def nu_dft_cuda(x: np.array, y: np.array, f: np.array,b = 2, th = 64, threshold=0.0) -> np.array:
     '''Same as nu_dft, but implemented to use a CUDA GPU. This variant can be 100x faster than
        the nu_dft_fast variant. 
        Args:
@@ -214,4 +229,8 @@ def nu_dft_cuda(x: np.array, y: np.array, f: np.array,b = 2, th = 64) -> np.arra
     yfr = yf_cr.copy_to_host()
     yfi = yf_ci.copy_to_host()
     yf = yfr+1j*yfi
+    
+    # JAM, probably we often want to do this outside of the dft call?
+    yf = yf[dft.threshold_mask(yf,x.shape[0],threshold)]
+    
     return yf

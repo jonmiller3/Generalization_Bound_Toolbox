@@ -9,20 +9,7 @@ from geomloss import SamplesLoss
 
 ztw_c = CDLL(r'libztw.so')
 
-def threshold_mask(yf: np.array, ns: int, th: float) -> np.array:
-    ''' Applies the threshold for approximate FT based on samplesize and
-        threshold multiplier.
-        
-    Args:
-        yf: Fourier transform coefficients
-        ns: Number of samples
-        th: threshold
-        
-    '''
-    yf_max = np.max(np.abs(yf))
-    yf_threshold = th*yf_max/np.sqrt(ns)
-    mask = np.abs(yf) > yf_threshold
-    return mask
+
     
 
 def est_spec_norm_from_data(x: np.array, y: np.array, B: np.array, f: np.array, S: np.array, nu_type='nu_dft_fast', threshold=0.0) -> float:
@@ -44,7 +31,7 @@ def est_spec_norm_from_data(x: np.array, y: np.array, B: np.array, f: np.array, 
     V = np.prod(dS)
 
     yf = (V/x.shape[0])*alg(x,y,f)
-    yf = yf[threshold_mask(yf,x.shape[0],threshold)]
+    yf = yf[dft.threshold_mask(yf,x.shape[0],threshold)]
     
     two_pi =2.0*np.pi
     return est_spec_norm(f*two_pi,yf,B*two_pi)
@@ -266,7 +253,7 @@ def est_bounds(x,y,m,trials,Nd,B,nn,use_cuda=False,cuda_blocks=64,cuda_threads=6
     # JAM, I think I am still missing one of the corrections for the yf
     # we are using dft, so we have sampling, overall normalization doesn't matter?
     yf = (1/x.shape[0])*yf
-    yf = yf[threshold_mask(yf,x.shape[0],threshold)]
+    yf = yf[dft.threshold_mask(yf,x.shape[0],threshold)]
 
 
     p = E_pdf(yf,f.T*np.pi*2.0)
