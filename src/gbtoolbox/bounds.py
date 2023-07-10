@@ -171,7 +171,7 @@ def path_norm_2layer(weights1,biases1,weights2,bias2=0):
 
     '''
     wnorm = np.sum(np.abs(weights1),axis=0) # 1-norm of weights
-    p_norm = np.sum(np.abs(weights2)*(wnorm+biases1))+bias2
+    p_norm = np.sum(np.abs(weights2)*(wnorm+np.abs(biases1)))+np.abs(bias2)
     return p_norm
 
 
