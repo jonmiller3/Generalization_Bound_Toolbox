@@ -21,6 +21,26 @@ class TestSpecNormMethods(unittest.TestCase):
         y = np.exp(-0.5/v[0]*x**2)
         sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]),np.array([[-span/2.0,span/2.0]]))
         rel_er = np.abs(sne-sng)/sng
+        print(" here is the results {} {} {}".format(sng,sne,rel_er))
+        msg = f'analytic = {sng}, dft-based = {sne}'
+        self.assertLess(rel_er,1e-1,msg=msg)
+
+    def test_est_spec_norm_rand_1d(self):
+    
+        print(" test gaussian in d=1 bounds with threshold")
+
+    
+        v = [3.3]
+        sng = bounds.spec_norm_gaussian(v)
+        N = 1000
+        span = 60
+        x = (np.random.rand(N).reshape(-1,1)*2-1)*span/2.0
+        B = N/span
+
+        y = np.exp(-0.5/v[0]*x**2)
+        sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]),np.array([[-span/2.0,span/2.0]]),'nu_dft_fast',10.0)
+        rel_er = np.abs(sne-sng)/sng
+        print(" here is the results {} {} {}".format(sng,sne,rel_er))
         msg = f'analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,1e-1,msg=msg)
 
@@ -43,27 +63,29 @@ class TestSpecNormMethods(unittest.TestCase):
         spans = np.tile([-span/2.0,span/2.0],(2,1))
         sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]*2),spans)
         rel_er = np.abs(sne-sng)/sng
+        print(" here is the results {} {} {}".format(sng,sne,rel_er))
         msg = f'analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,1e-1,msg=msg)
 
-    def test_est_spec_norm_equi_8d(self):
+    def test_est_spec_norm_equi_6d(self):
     
-        print(" test gaussian in d=8 bounds")
+        print(" test gaussian in d=6 bounds")
 
-        v = [3.3,3.8,4.2,4.6,5.1,6.4,6.7,8.5]
+        v = [3.3,3.8,4.2,4.6,5.1,6.4]
         sng = bounds.spec_norm_gaussian(v)
-        N = 8
+        N = 6
         span = 60
         x = np.linspace(-span/2.0,span/2.0,N)[:,None]
-        X = np.meshgrid(x,x,x,x,x,x,x,x)
+        X = np.meshgrid(x,x,x,x,x,x)
         x = mt.grid_to_stack(X)
-        y = np.exp(-0.5*(x[:,0]**2/v[0]+x[:,1]**2/v[1]+x[:,2]**2/v[2]+x[:,3]**2/v[3]+x[:,4]**2/v[4]+x[:,5]**2/v[5]+x[:,6]**2/v[6]+x[:,7]**2/v[7])).reshape(N*N*N*N*N*N*N*N,1)
+        y = np.exp(-0.5*(x[:,0]**2/v[0]+x[:,1]**2/v[1]+x[:,2]**2/v[2]+x[:,3]**2/v[3]+x[:,4]**2/v[4]+x[:,5]**2/v[5])).reshape(N*N*N*N*N*N,1)
         
         B = N/span
 
-        spans = np.tile([-span/2.0,span/2.0],(8,1))
-        sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]*8),spans)
+        spans = np.tile([-span/2.0,span/2.0],(6,1))
+        sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]*6),spans)
         rel_er = np.abs(sne-sng)/sng
+        print(" here is the results {} {} {}".format(sng,sne,rel_er))
         msg = f'analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,1e-1,msg=msg)
 

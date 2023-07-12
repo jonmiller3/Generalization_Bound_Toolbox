@@ -30,13 +30,14 @@ def est_spec_norm_from_data(x: np.array, y: np.array, B: np.array, f: np.array, 
     dS = S[:,1]-S[:,0]
     V = np.prod(dS)
 
-    yf = (V/x.shape[0])*alg(x,y,f)
-    yf = yf[dft.threshold_mask(yf,x.shape[0],threshold)]
+    yf = (V/x.shape[0])*alg(x,y,f)/np.sqrt(2*np.pi)
+    mask =dft.threshold_mask(yf,x.shape[0],threshold)
+    
     
     two_pi =2.0*np.pi
-    return est_spec_norm(f*two_pi,yf,B*two_pi)
+    return est_spec_norm(f*two_pi,yf,B*two_pi,mask)
 
-def est_spec_norm_random(x: np.array, y: np.array, K: int, B: np.array, S: np.array, nu_type='nu_dft_fast') -> float:
+def est_spec_norm_random(x: np.array, y: np.array, K: int, B: np.array, S: np.array, nu_type='nu_dft_fast', threshold=0.0) -> float:
     '''Estimate the spectral norm from a set of inputs/ouputs
        that represent a function using random frequency vectors
 
@@ -50,7 +51,7 @@ def est_spec_norm_random(x: np.array, y: np.array, K: int, B: np.array, S: np.ar
     '''
     d = x.shape[1]    
     f = np.random.random_sample((K,d))-0.5
-    return est_spec_norm_from_data(x, y, B, f, S,nu_type)
+    return est_spec_norm_from_data(x, y, B, f, S,nu_type,threshold)
 
 def est_spec_norm_f(domain: np.array, f, N:int) -> float:
     '''Estimate the spectral norm of a function f given its domain in each dimension
@@ -89,7 +90,7 @@ def est_spec_norm_f(domain: np.array, f, N:int) -> float:
     sn = np.prod(B)/(N**d)*np.sum(wn2*np.abs(yf))
     return sn
 
-def est_spec_norm_equi(x: np.array, y: np.array, M: int, B: np.array, S: np.array, nu_type='nu_dft_fast') -> float:
+def est_spec_norm_equi(x: np.array, y: np.array, M: int, B: np.array, S: np.array, nu_type='nu_dft_fast', threshold=0.0) -> float:
     '''Estimate the spectral norm from a set of inputs/ouputs
        that represent a function using equispaced frequencies
 
@@ -107,9 +108,9 @@ def est_spec_norm_equi(x: np.array, y: np.array, M: int, B: np.array, S: np.arra
     Bspans = np.array([[-Bt/2.0,Bt/2.0] for Bt in B])
     f, _ = mt.gen_stacked_equispaced_nd_grid(M,Bspans)    
 
-    return est_spec_norm_from_data(x, y, B, f, S,nu_type)
+    return est_spec_norm_from_data(x, y, B, f, S,nu_type,threshold)
 
-def est_spec_norm(w: np.array, yf: np.array, B=None) -> float:
+def est_spec_norm(w: np.array, yf: np.array, B=None, mask=None) -> float:
     '''Estimate the spectral norm given a finite set of frequeny vectors 
        and estimates of the Fourier transform at those vectors
 
@@ -127,8 +128,17 @@ def est_spec_norm(w: np.array, yf: np.array, B=None) -> float:
        '''
     
     w2 = (np.sum(np.abs(w),axis=1)**2)[:,None] # 1 norm squared
-    w2yf = w2*np.abs(yf)
-    
+    if not mask.all():
+        w2yf = w2*np.abs(yf)*mask.astype(int)
+        print(" yes mask ")
+        print(mask)
+    else:
+        w2yf = w2*np.abs(yf)
+
+    print(yf)
+    print(w2)
+    print(w2yf)
+
     # compute the bandwidth volume
     if B is None:
         mw = np.min(w,axis=0)
