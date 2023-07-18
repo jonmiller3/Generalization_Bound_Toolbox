@@ -7,6 +7,9 @@ import scipy.optimize as opt
 from geomloss import SamplesLoss
 
 
+import matplotlib.pyplot as plt
+
+
 ztw_c = CDLL(r'libztw.so')
 
 
@@ -30,8 +33,9 @@ def est_spec_norm_from_data(x: np.array, y: np.array, B: np.array, f: np.array, 
     dS = S[:,1]-S[:,0]
     V = np.prod(dS)
 
-    yf = (V/x.shape[0])*alg(x,y,f)/np.sqrt(2*np.pi)
+    yf = (V/x.shape[0])*alg(x,y,f)/(np.sqrt(2*np.pi)**d)
     mask =dft.threshold_mask(yf,x.shape[0],threshold)
+    print(threshold)
     
     
     two_pi =2.0*np.pi
@@ -106,8 +110,14 @@ def est_spec_norm_equi(x: np.array, y: np.array, M: int, B: np.array, S: np.arra
     
     d = x.shape[1]
     Bspans = np.array([[-Bt/2.0,Bt/2.0] for Bt in B])
+    print(Bspans)
+    print(B)
+    print(M)
     f, _ = mt.gen_stacked_equispaced_nd_grid(M,Bspans)    
-
+    print(f)
+    print(f.shape)
+    print(x.shape)
+    
     return est_spec_norm_from_data(x, y, B, f, S,nu_type,threshold)
 
 def est_spec_norm(w: np.array, yf: np.array, B=None, mask=None) -> float:
@@ -126,18 +136,30 @@ def est_spec_norm(w: np.array, yf: np.array, B=None, mask=None) -> float:
        Returns:
            An estimate of the spectral norm
        '''
+       
+       
+    d=w.shape[1]
+    plt.plot(w[:,0],np.abs(yf))
+    plt.show()
     
     w2 = (np.sum(np.abs(w),axis=1)**2)[:,None] # 1 norm squared
     if not mask.all():
         w2yf = w2*np.abs(yf)*mask.astype(int)
-        print(" yes mask ")
-        print(mask)
+        #print(mask)
+        frac_in_domain = sum(mask.astype(int))/len(mask)
+        print(" fraction above threshold {}".format(frac_in_domain))
     else:
         w2yf = w2*np.abs(yf)
+        frac_in_domain=1.
 
-    print(yf)
-    print(w2)
-    print(w2yf)
+    print(yf[:40])
+    print(w[:40])
+    #print(w2)
+    #print(w2yf)
+    print(B)
+    print(np.max(w,axis=0)-np.min(w,axis=0))
+
+    B = None
 
     # compute the bandwidth volume
     if B is None:
@@ -147,8 +169,9 @@ def est_spec_norm(w: np.array, yf: np.array, B=None, mask=None) -> float:
     else:
         V = np.prod(B)
     
-    fac = V/np.prod(yf.shape) # volume over total number of points
-    return np.sum(w2yf)*fac
+    # JAM, should this be w2yf.shape[0]
+    fac = V/yf.shape[0] # volume over total number of points
+    return np.sum(w2yf)*fac*np.sqrt(2*np.pi)**d
 
 def spec_norm_gaussian(var) -> float:
     '''Computes the analytical spectral norm of an n-d unscaled Gaussian
@@ -171,6 +194,26 @@ def spec_norm_gaussian(var) -> float:
     for i in range(d):
         s2 += np.sum(istd[i]*istd[i+1:])
     sn = (2.0*np.pi)**d*(s1+4.0/np.pi*s2)
+    return sn
+
+def spec_norm_sin(var) -> float:
+    '''Computes the analytical spectral norm of an n-d product of sins, \prod sin(n_i x_i)
+
+
+       Args:
+            var: a list or array of n_i, one for each dimension
+       Returns:
+            An analytical computation of the spectral norm
+    '''
+    var = np.array(var)
+    d = len(var)
+    w2 = 0
+
+    for i in range(d):
+        w2 += np.abs(var[i])
+    w2 = w2*w2
+    
+    sn = (2.0*np.pi)**d*w2
     return sn
 
 def path_norm_2layer(weights1,biases1,weights2,bias2=0):
@@ -262,8 +305,8 @@ def est_bounds(x,y,m,trials,Nd,B,nn,use_cuda=False,cuda_blocks=64,cuda_threads=6
 
     # JAM, I think I am still missing one of the corrections for the yf
     # we are using dft, so we have sampling, overall normalization doesn't matter?
-    yf = (1/x.shape[0])*yf
-    yf = yf[dft.threshold_mask(yf,x.shape[0],threshold)]
+    # yf = (1/x.shape[0])*yf
+    # yf = yf[dft.threshold_mask(yf,x.shape[0],threshold)]
 
 
     p = E_pdf(yf,f.T*np.pi*2.0)

@@ -39,6 +39,7 @@ def threshold_mask(yf: np.array, ns: int, th: float) -> np.array:
     '''
     yf_max = np.max(np.abs(yf))
     yf_threshold = th*yf_max/np.sqrt(ns)
+    print(yf_threshold)
     mask = np.abs(yf) > yf_threshold
     return mask
 
