@@ -115,12 +115,12 @@ class TestSpecNormMethods(unittest.TestCase):
 
         
         yf = (V/x.shape[0])*dft.nu_dft_fast(x,y,f)/(np.sqrt(2*np.pi)**2)
-        mask =dft.threshold_mask(yf,x.shape[0],24.0)
+        mask =dft.threshold_mask(yf,x.shape[0],10.0)
         
         plt.imshow(np.abs(yf).reshape(N,N))
         plt.show()
 
-        sne = bounds.est_spec_norm(f,yf,np.array([4]),mask)
+        sne = bounds.est_spec_norm(f,yf,np.array([4,4]),mask)
         rel_er = np.abs(sne-sng)/sng
         print(" here is the results {} {} {}".format(sng,sne,rel_er))
         msg = f'analytic = {sng}, dft-based = {sne}'
@@ -174,37 +174,50 @@ class TestSpecNormMethods(unittest.TestCase):
         print(f.shape)
         
         V = 60*60*60
-        spans = np.tile([-span/2.0,span/2.0],(2,1))
+        spans = np.tile([-span/2.0,span/2.0],(3,1))
 
         
         yf = (V/x.shape[0])*dft.nu_dft(x,y,f)/(np.sqrt(2*np.pi)**2)
-        mask =dft.threshold_mask(yf,x.shape[0],24.0)
+        mask =dft.threshold_mask(yf,x.shape[0],14.0)
         print(f.shape)
         
         plt.imshow(np.abs(yf).reshape(N,N,N)[:,:,40])
         plt.show()
 
-        sne = bounds.est_spec_norm(f,yf,np.array([4]),mask)
+        sne = bounds.est_spec_norm(f,yf,np.array([4,4,4]),mask)
         rel_er = np.abs(sne-sng)/sng
         print(" here is the results {} {} {}".format(sng,sne,rel_er))
         msg = f'analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,1e-1,msg=msg)
 
-    def test_est_spec_norm_rand_rand_6d(self):
+    def test_est_spec_norm_rand_rand_6d_explicit(self):
     
         print(" test gaussian in d=6 bounds")
 
         v = [3.3,3.8,4.2,4.6,5.1,6.4]
         sng = bounds.spec_norm_gaussian(v)
-        N = 10000
+        N = 100000
         span = 60
         x = (np.random.rand(N*6).reshape(-1,6)*2-1)*span/2.0
         y = np.exp(-0.5*(x[:,0]**2/v[0]+x[:,1]**2/v[1]+x[:,2]**2/v[2]+x[:,3]**2/v[3]+x[:,4]**2/v[4]+x[:,5]**2/v[5])).reshape(N,1)
         
-        B = N/span
+        d = x.shape[1]
+        f = np.random.random_sample((K,d))-0.5
+        
+        print(f.shape)
+        
+        V = 60*60*60*60*60*60
+        spans = np.tile([-span/2.0,span/2.0],6,1))
 
-        spans = np.tile([-span/2.0,span/2.0],(6,1))
-        sne = bounds.est_spec_norm_random(x,y,100*N,np.array([B]*6),np.array([[-span/2.0,span/2.0]]),'nu_dft_faster',10.0)
+        
+        yf = (V/x.shape[0])*dft.nu_dft(x,y,f)/(np.sqrt(2*np.pi)**2)
+        mask =dft.threshold_mask(yf,x.shape[0],16.0)
+        print(f.shape)
+        
+        plt.imshow(np.abs(yf).reshape(N,N,N,N,N,N)[:,:,40,40,40,40])
+        plt.show()
+
+        sne = bounds.est_spec_norm(f,yf,np.array([4,4,4,4,4,4]),mask)
         rel_er = np.abs(sne-sng)/sng
         print(" here is the results {} {} {}".format(sng,sne,rel_er))
         msg = f'analytic = {sng}, dft-based = {sne}'
