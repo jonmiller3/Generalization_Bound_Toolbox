@@ -159,7 +159,7 @@ def est_spec_norm(w: np.array, yf: np.array, B=None, mask=None) -> float:
     print(B)
     print(np.max(w,axis=0)-np.min(w,axis=0))
 
-    B = None
+    # B = None
 
     # compute the bandwidth volume
     if B is None:
@@ -168,6 +168,9 @@ def est_spec_norm(w: np.array, yf: np.array, B=None, mask=None) -> float:
         V = np.prod(Mw-mw)
     else:
         V = np.prod(B)
+    
+    print(yf.shape)
+    print(w2yf.shape)
     
     # JAM, should this be w2yf.shape[0]
     fac = V/yf.shape[0] # volume over total number of points

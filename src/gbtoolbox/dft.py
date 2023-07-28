@@ -43,6 +43,18 @@ def threshold_mask(yf: np.array, ns: int, th: float) -> np.array:
     mask = np.abs(yf) > yf_threshold
     return mask
 
+def threshold_cmask(yf: np.array, th: float) -> np.array:
+    ''' Applies the threshold for approximate FT based on threshold.
+        
+    Args:
+        yf: Fourier transform coefficients
+        th: threshold
+        
+    '''
+
+    mask = np.abs(yf) > th
+    return mask
+
 def nu_dft_fast(x: np.array, y: np.array, f: np.array) -> np.array:
     '''Same as nu_dft, but implemented in c. It's 2-3 times faster but fundamentally
     an order n*m operation. You must build the c version using the included Makefile.

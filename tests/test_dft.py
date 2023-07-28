@@ -4,6 +4,9 @@ import numpy as np
 import unittest
 import time
 
+import matplotlib.pyplot as plt
+
+
 class TestDFTMethods(unittest.TestCase):
     def test_1d(self):
         N = 16
@@ -34,6 +37,38 @@ class TestDFTMethods(unittest.TestCase):
 
         er = np.max(np.abs(yf-yf_fft.reshape((M*M,1))))
         self.assertAlmostEqual(er,0.0,places=11)
+
+    def test_2d_random_threshold(self):
+        N = 80
+        span = 6
+        x = (np.random.rand(2400*N).reshape(-1,2)*2-1)*span/2.0
+        y = (np.sin(2*np.pi*x[:,0])*np.sin(np.pi*x[:,1])+np.sin(np.pi*x[:,0])*np.sin(2*np.pi*x[:,1])).reshape(N*1200,1)
+
+        B = N/span
+
+        print(x)
+        
+        f, _ = mt.gen_stacked_equispaced_nd_grid(N,np.array([[-Bt/2.0,Bt/2.0] for Bt in np.array([B,B])]))
+        
+        print(f.shape)
+        
+        V = 60*60
+        spans = np.tile([-span/2.0,span/2.0],(2,1))
+        
+        yf = (V/x.shape[0])*dft.nu_dft_fast(x,y,f)/(np.sqrt(2*np.pi)**2)
+
+        mask =dft.threshold_cmask(yf,0.2)
+        
+        plt.imshow(np.abs(yf).reshape(N,N))
+        plt.show()
+
+        plt.imshow(np.abs(yf*mask.astype(int)).reshape(N,N))
+        plt.show()
+        
+        er = 0
+        msg = f' nothing '
+
+        self.assertLess(er,3e-1,msg=msg)
 
     def test_2d_fast(self):
         N = 16
