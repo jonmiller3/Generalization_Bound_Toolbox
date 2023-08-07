@@ -115,6 +115,8 @@ def est_spec_norm_equi(x: np.array, y: np.array, M: int, B: np.array, S: np.arra
     print(M)
     f, _ = mt.gen_stacked_equispaced_nd_grid(M,Bspans)    
     print(f)
+    print(np.max(f))
+    print(np.min(f))
     print(f.shape)
     print(x.shape)
     
@@ -159,7 +161,7 @@ def est_spec_norm(w: np.array, yf: np.array, B=None, mask=None) -> float:
     print(B)
     print(np.max(w,axis=0)-np.min(w,axis=0))
 
-    # B = None
+    #B = None
 
     # compute the bandwidth volume
     if B is None:
@@ -451,7 +453,7 @@ class E_pdf:
         # TLR,
         # the following 4 are only used for display, can be removed at
         # some point if needed
-        self.weighted_FTmag = aFT*(magw*magw)
+        self.weighted_FTmag = np.multiply(aFT,np.multiply(magw,magw).reshape(-1,1))
         self.FTangle = np.angle(FT)
         self.w = w
         self.magw = magw
