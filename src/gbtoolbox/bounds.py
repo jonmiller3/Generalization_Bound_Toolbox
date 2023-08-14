@@ -26,7 +26,7 @@ def est_spec_norm_from_data(x: np.array, y: np.array, B: np.array, f: np.array, 
             B: The bandwidths in each dimension
             f: Kxd array of frequency vectors at which to evaluate the Fourier transform
     '''
-    algs = {'nu_dft':dft.nu_dft,'nu_dft_fast':dft.nu_dft_fast,'nu_dft_faster':dft.nu_dft_faster}
+    algs = {'nu_dft':dft.nu_dft,'nu_dft_fast':dft.nu_dft_fast,'nu_dft_faster':dft.nu_dft_faster,'nu_dft_cuda':dft.nu_dft_cuda}
     alg = algs[nu_type]
     d = x.shape[1]        
 
@@ -35,8 +35,6 @@ def est_spec_norm_from_data(x: np.array, y: np.array, B: np.array, f: np.array, 
 
     yf = (V/x.shape[0])*alg(x,y,f)/(np.sqrt(2*np.pi)**d)
     mask =dft.threshold_mask(yf,x.shape[0],threshold)
-    print(threshold)
-    
     
     two_pi =2.0*np.pi
     return est_spec_norm(f*two_pi,yf,B*two_pi,mask)
@@ -110,15 +108,7 @@ def est_spec_norm_equi(x: np.array, y: np.array, M: int, B: np.array, S: np.arra
     
     d = x.shape[1]
     Bspans = np.array([[-Bt/2.0,Bt/2.0] for Bt in B])
-    print(Bspans)
-    print(B)
-    print(M)
-    f, _ = mt.gen_stacked_equispaced_nd_grid(M,Bspans)    
-    print(f)
-    print(np.max(f))
-    print(np.min(f))
-    print(f.shape)
-    print(x.shape)
+    f, _ = mt.gen_stacked_equispaced_nd_grid(M,Bspans)
     
     return est_spec_norm_from_data(x, y, B, f, S,nu_type,threshold)
 
@@ -141,25 +131,14 @@ def est_spec_norm(w: np.array, yf: np.array, B=None, mask=None) -> float:
        
        
     d=w.shape[1]
-    plt.plot(w[:,0],np.abs(yf))
-    plt.show()
     
     w2 = (np.sum(np.abs(w),axis=1)**2)[:,None] # 1 norm squared
     if not mask.all():
         w2yf = w2*np.abs(yf)*mask.astype(int)
-        #print(mask)
         frac_in_domain = sum(mask.astype(int))/len(mask)
-        print(" fraction above threshold {}".format(frac_in_domain))
     else:
         w2yf = w2*np.abs(yf)
         frac_in_domain=1.
-
-    print(yf[:40])
-    print(w[:40])
-    #print(w2)
-    #print(w2yf)
-    print(B)
-    print(np.max(w,axis=0)-np.min(w,axis=0))
 
     #B = None
 
@@ -171,8 +150,6 @@ def est_spec_norm(w: np.array, yf: np.array, B=None, mask=None) -> float:
     else:
         V = np.prod(B)
     
-    print(yf.shape)
-    print(w2yf.shape)
     
     # JAM, should this be w2yf.shape[0]
     fac = V/yf.shape[0] # volume over total number of points

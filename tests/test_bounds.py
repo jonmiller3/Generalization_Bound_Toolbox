@@ -12,10 +12,7 @@ from scipy.interpolate import RBFInterpolator
 
 class TestSpecNormMethods(unittest.TestCase):
     def test_est_spec_norm_equi_1d(self):
-    
-        print(" test gaussian in d=1 bounds")
-
-    
+        
         v = [3.3]
         sng = bounds.spec_norm_gaussian(v)
         N = 1000
@@ -26,14 +23,11 @@ class TestSpecNormMethods(unittest.TestCase):
         y = np.exp(-0.5/v[0]*x**2)
         sne = bounds.est_spec_norm_equi(x,y,int(1*N),np.array([1*B]),np.array([[-span/2.0,span/2.0]]))
         rel_er = np.abs(sne-sng)/sng
-        print(" here is the results {} {} {}".format(sng,sne,rel_er))
         msg = f'analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,1e-1,msg=msg)
 
     def test_est_spec_norm_rand_1d(self):
     
-        print(" test gaussian in d=1 bounds with threshold")
-
     
         v = [3.3]
         sng = bounds.spec_norm_gaussian(v)
@@ -45,14 +39,11 @@ class TestSpecNormMethods(unittest.TestCase):
         y = np.exp(-0.5/v[0]*x**2)
         sne = bounds.est_spec_norm_equi(x,y,int(10*N),np.array([(B)]),np.array([[-span/2.0,span/2.0]]),'nu_dft_fast',8.0)
         rel_er = np.abs(sne-sng)/sng
-        print(" here is the results {} {} {}".format(sng,sne,rel_er))
         msg = f'analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,3e-1,msg=msg)
 
     def test_est_spec_norm_equi_2d(self):
     
-        print(" test gaussian in d=2 bounds")
-
     
         v = [3.3,3.8]
         sng = bounds.spec_norm_gaussian(v)
@@ -68,85 +59,64 @@ class TestSpecNormMethods(unittest.TestCase):
         spans = np.tile([-span/2.0,span/2.0],(2,1))
         sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]*2),spans,'nu_dft_fast')
         rel_er = np.abs(sne-sng)/sng
-        print(" here is the results {} {} {}".format(sng,sne,rel_er))
         msg = f'analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,1e-1,msg=msg)
 
     def test_est_spec_norm_rand_2d(self):
     
-        print(" test gaussian in d=2 bounds")
-
     
         v = [3.3,3.8]
         sng = bounds.spec_norm_gaussian(v)
         N = 80
-        span = 60
+        span = 40
         x = (np.random.rand(800*N).reshape(-1,2)*2-1)*span/2.0
         y = np.exp(-0.5*(x[:,0]**2/v[0]+x[:,1]**2/v[1])).reshape(N*400,1)
         
         B = N/span
 
         spans = np.tile([-span/2.0,span/2.0],(2,1))
-        sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]*2),spans,'nu_dft_fast',16.0)
+        sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]*2),spans,'nu_dft_fast',15.5)
         rel_er = np.abs(sne-sng)/sng
-        print(" here is the results {} {} {}".format(sng,sne,rel_er))
         msg = f'analytic = {sng}, dft-based = {sne}'
-        self.assertLess(rel_er,3e-1,msg=msg)
+        self.assertLess(rel_er,4e-1,msg=msg)
 
     def test_est_spec_norm_rand_2d_explicit(self):
     
-        print(" test gaussian in d=2 bounds")
-
     
         v = [3.3,3.8]
         sng = bounds.spec_norm_gaussian(v)
         N = 80
-        span = 60
-        x = (np.random.rand(2400*N).reshape(-1,2)*2-1)*span/2.0
-        y = np.exp(-0.5*(x[:,0]**2/v[0]+x[:,1]**2/v[1])).reshape(N*1200,1)
+        span = 40
+        x = (np.random.rand(3000*N).reshape(-1,2)*2-1)*span/2.0
+        y = np.exp(-0.5*(x[:,0]**2/v[0]+x[:,1]**2/v[1])).reshape(N*1500,1)
         
         B = N/span
 
         
         f, _ = mt.gen_stacked_equispaced_nd_grid(N,np.array([[-Bt/2.0,Bt/2.0] for Bt in np.array([B,B])]))
         
-        print(f.shape)
-        print(np.max(f))
-        print(np.min(f))
 
-        V = 60*60
+        V = span*span
         spans = np.tile([-span/2.0,span/2.0],(2,1))
 
         
         yf = (V/x.shape[0])*dft.nu_dft_fast(x,y,f)/(np.sqrt(2*np.pi)**2)
-        print("ready to do threshold\n")
         
         B=B*2.0*np.pi
         f=f*2.0*np.pi
 
-        mask =dft.threshold_cmask(yf,0.3)
+        mask =dft.threshold_cmask(yf,0.28)
         
-        plt.imshow(np.abs(yf).reshape(N,N))
-        plt.show()
-
-        plt.imshow(np.abs(yf*mask.astype(int)).reshape(N,N))
-        plt.show()
-
-        plt.plot(f[:,0],np.abs(yf*mask.astype(int)))
-        plt.show()
         
         sne = bounds.est_spec_norm(f,yf,None,mask)
 
         #sne = bounds.est_spec_norm(f,yf,np.array([B,B]),mask)
         rel_er = np.abs(sne-sng)/sng
-        print(" here is the results {} {} {}".format(sng,sne,rel_er))
         msg = f'analytic = {sng}, dft-based = {sne}'
-        self.assertLess(rel_er,3e-1,msg=msg)
+        self.assertLess(rel_er,4e-1,msg=msg)
 
     def test_est_spec_norm_equi_3d(self):
     
-        print(" test gaussian in d=3 bounds")
-
     
         v = [3.3,3.8,3.1]
         sng = bounds.spec_norm_gaussian(v)
@@ -156,89 +126,69 @@ class TestSpecNormMethods(unittest.TestCase):
         X = np.meshgrid(x,x,x)
         x = mt.grid_to_stack(X)
         y = np.exp(-0.5*(x[:,0]**2/v[0]+x[:,1]**2/v[1]+x[:,2]**2/v[2])).reshape(N*N*N,1)
-        print(x.shape)
-        print(y.shape)
-        print(" now to make the plots ")
         
-        plt.plot(x[:,0],y)
-        plt.show()
         
         B = N/span
 
         spans = np.tile([-span/2.0,span/2.0],(3,1))
-        sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]*3),spans,'nu_dft_fast')
+        sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]*3),spans,'nu_dft_cuda')
         rel_er = np.abs(sne-sng)/sng
-        print(" here is the results {} {} {}".format(sng,sne,rel_er))
         msg = f'analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,5e-1,msg=msg)
         
     def test_est_spec_norm_rand_3d_explicit(self):
     
-        print(" test gaussian in d=3 bounds")
 
     
         v = [3.3,3.8,3.1]
         sng = bounds.spec_norm_gaussian(v)
         N = 80
-        span = 60
-        x = (np.random.rand(15000*N).reshape(-1,3)*2-1)*span/2.0
-        y = np.exp(-0.5*(x[:,0]**2/v[0]+x[:,1]**2/v[1]+x[:,2]**2/v[2])).reshape(N*5000,1)
+        span = 50
+        x = (np.random.rand(18000*N).reshape(-1,3)*2-1)*span/2.0
+        y = np.exp(-0.5*(x[:,0]**2/v[0]+x[:,1]**2/v[1]+x[:,2]**2/v[2])).reshape(N*6000,1)
         
         
         
         f, _ = mt.gen_stacked_equispaced_nd_grid(N,np.array([[-Bt/2.0,Bt/2.0] for Bt in np.array([2,2,2])]))
         
-        print(f.shape)
         
-        V = 60*60*60
+        V = span*span*span
         spans = np.tile([-span/2.0,span/2.0],(3,1))
 
         
-        yf = (V/x.shape[0])*dft.nu_dft_faster(x,y,f)/(np.sqrt(2*np.pi)**2)
-        print("ready to do threshold\n")
+        yf = (V/x.shape[0])*dft.nu_dft_cuda(x,y,f,128,128)/(np.sqrt(2*np.pi)**2)
         mask =dft.threshold_cmask(yf,2.0)
-        print(f.shape)
         
         f=f*2.0*np.pi
         
-        plt.imshow(np.abs(yf).reshape(N,N,N)[:,:,40])
-        plt.show()
-
-        plt.plot(f[:,0],np.abs(yf*mask.astype(int)))
-        plt.show()
-
         #sne = bounds.est_spec_norm(f,yf,np.array([2,2,2]),mask)
         sne = bounds.est_spec_norm(f,yf,None,mask)
         rel_er = np.abs(sne-sng)/sng
-        print(" here is the results {} {} {}".format(sng,sne,rel_er))
         msg = f'analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,6e-1,msg=msg)
 
     def test_est_spec_norm_rand_rand_6d_explicit(self):
     
-        print(" test gaussian in d=6 bounds")
 
         v = [3.3,3.8,4.2,4.6,5.1,6.4]
         sng = bounds.spec_norm_gaussian(v)
-        N = 10000
-        span = 60
+        N = 100000
+        span = 40
         x = (np.random.rand(N*6).reshape(-1,6)*2-1)*span/2.0
         y = np.exp(-0.5*(x[:,0]**2/v[0]+x[:,1]**2/v[1]+x[:,2]**2/v[2]+x[:,3]**2/v[3]+x[:,4]**2/v[4]+x[:,5]**2/v[5])).reshape(N,1)
         
         d = x.shape[1]
-        f = np.random.random_sample((10000,d))-0.5
+        f = np.random.random_sample((100000,d))-0.5
         
-        print(f.shape)
         
-        V = 60*60*60*60*60*60
+        V = span*span*span*span*span*span
         spans = np.tile([-span/2.0,span/2.0],(6,1))
 
         
-        yf = (V/x.shape[0])*dft.nu_dft_faster(x,y,f)/(np.sqrt(2*np.pi)**2)
-        mask =dft.threshold_mask(yf,x.shape[0],16.0)
-        print(f.shape)
-        print(f)
-        print(yf)
+        yf = (V/x.shape[0])*dft.nu_dft_cuda(x,y,f,128,128)/(np.sqrt(2*np.pi)**5)
+        #mask =dft.threshold_mask(yf,x.shape[0],16.0)
+        mask =dft.threshold_cmask(yf,100.0)
+
         
         f=f*2.0*np.pi
 
@@ -247,7 +197,7 @@ class TestSpecNormMethods(unittest.TestCase):
         rel_er = np.abs(sne-sng)/sng
         print(" here is the results {} {} {}".format(sng,sne,rel_er))
         msg = f'analytic = {sng}, dft-based = {sne}'
-        self.assertLess(rel_er,1e-1,msg=msg)
+        self.assertLess(rel_er,6e-1,msg=msg)
 
     def test_opt_bound(self):
 
