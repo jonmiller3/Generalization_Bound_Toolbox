@@ -133,9 +133,13 @@ def est_spec_norm(w: np.array, yf: np.array, B=None, mask=None) -> float:
     d=w.shape[1]
     
     w2 = (np.sum(np.abs(w),axis=1)**2)[:,None] # 1 norm squared
-    if not mask.all():
-        w2yf = w2*np.abs(yf)*mask.astype(int)
-        frac_in_domain = sum(mask.astype(int))/len(mask)
+    if mask is not None:
+        if not mask.all():
+            w2yf = w2*np.abs(yf)*mask.astype(int)
+            frac_in_domain = sum(mask.astype(int))/len(mask)
+        else:
+            w2yf = w2*np.abs(yf)
+            frac_in_domain=1.
     else:
         w2yf = w2*np.abs(yf)
         frac_in_domain=1.
@@ -384,6 +388,9 @@ def nn_wnorm(weights):
     
     Args:
         inner_weights - d x M array of inner weights
+    Returns:
+        A numpy array of size d X M of inner weights divided by the 1-norm of the inner weights.
+        The 1-norm of the inner weights.
                         
     '''
     # JAM, Is this used somewhere?
@@ -415,11 +422,12 @@ class E_pdf:
         Initialize class with Fourier tranform
 
         Args:
-            FT - Fourier tranform values, length n array, where is the number of 
+            FT - Fourier tranform values, length nx1 array, where n is the number of
                  frequency vectors
             w - Radial frequency vectors at which the FT is computed
                 dxn array where d is the dimension of the vectors
                 and n is the number of frequency vectors
+                Note that if you use f from the toolbox, you need to provide f*2*np.pi
             
 
         '''             
