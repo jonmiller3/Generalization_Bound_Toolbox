@@ -136,6 +136,10 @@ def est_spec_norm(w: np.array, yf: np.array, B=None, mask=None) -> float:
        
     d=w.shape[1]
     
+    if w.shape[0]!=yf.shape[0]:
+        print(" shapes mismatch, w should be Mxd and yf should be M")
+        return None
+    
     w2 = (np.sum(np.abs(w),axis=1)**2)[:,None] # 1 norm squared
     if mask is not None:
         if not mask.all():
