@@ -55,6 +55,8 @@ N =64 # samples per dimension
 d = 2 # number of dimensions
 xg,yg,fg = gen_1(N,d)
 
+print('Equispaced Samples')
+
 dt1 = time_it(dft.nu_dft_fast,xg,yg,fg)
 dt2 = time_it(dft.nu_dft_faster,xg,yg,fg)
 dt3 = time_it(dft.nu_dft_cuda,xg,yg,fg,(N**d)//1024,1024)
@@ -66,6 +68,9 @@ N = 1000
 d = 6
 M = 16
 xg,yg,fg = gen_2(N,d,M)
+
+print('Arbitrary Samples')
+
 dt1 = time_it(dft.nu_dft_fast,xg,yg,fg)
 dt2 = time_it(dft.nu_dft_faster,xg,yg,fg)
 dt3 = time_it(dft.nu_dft_cuda,xg,yg,fg,(M**d)//1024,1024)

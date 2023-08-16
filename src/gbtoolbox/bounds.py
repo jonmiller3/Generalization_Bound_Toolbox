@@ -25,6 +25,7 @@ def est_spec_norm_from_data(x: np.array, y: np.array, B: np.array, f: np.array, 
             y: A size Nx1 array of outputs for the form y = f(x)
             B: The bandwidths in each dimension
             f: Kxd array of frequency vectors at which to evaluate the Fourier transform
+            threshold: Threshold for approximate FT. This is currently based on threshold*max(abs(yf))/sqrt(N) where yf is Fourier Transform
     '''
     algs = {'nu_dft':dft.nu_dft,'nu_dft_fast':dft.nu_dft_fast,'nu_dft_faster':dft.nu_dft_faster,'nu_dft_cuda':dft.nu_dft_cuda}
     alg = algs[nu_type]
@@ -50,6 +51,7 @@ def est_spec_norm_random(x: np.array, y: np.array, K: int, B: np.array, S: np.ar
             K: The number of frequency vectors to randomly select
             B: The bandwidths in each dimension
             S: The domain of the inputs, a dx2 array
+            threshold: Threshold for approximate FT. This is currently based on threshold*max(abs(yf))/sqrt(N) where yf is Fourier Transform
     '''
     d = x.shape[1]    
     f = np.random.random_sample((K,d))-0.5
@@ -103,6 +105,7 @@ def est_spec_norm_equi(x: np.array, y: np.array, M: int, B: np.array, S: np.arra
             M: The number of equispaced frequencies in each dimension
             B: The bandwidths in each dimension
             S: The domain of the inputs, a dx2 array
+            threshold: Threshold for approximate FT. This is currently based on threshold*max(abs(yf))/sqrt(N) where yf is Fourier Transform
 
     '''
     
@@ -125,6 +128,7 @@ def est_spec_norm(w: np.array, yf: np.array, B=None, mask=None) -> float:
               of vectors. These values are in the continuous domain, (i.e. not limited to [-pi,pi])            
             yf: length M array of Fourier transform values
             B: radial bandwidths in each dimension
+            mask: M array of boolians for whether the Fourier transform valeus are included in the approximate Fourier transform or not.
        Returns:
            An estimate of the spectral norm
        '''
@@ -261,7 +265,7 @@ class TwoLayerNetwork:
     
 
 
-def est_bounds(x,y,m,trials,Nd,B,nn,use_cuda=False,cuda_blocks=64,cuda_threads=64):
+def est_bounds(x,y,m,trials,Nd,B,nn,use_cuda=False,cuda_blocks=128,cuda_threads=64):
     '''
     Estimate the optimization error bound of a single hidden layer network
     for a function described with input and output data

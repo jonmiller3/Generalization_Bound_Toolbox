@@ -23,7 +23,7 @@ class TestSpecNormMethods(unittest.TestCase):
         y = np.exp(-0.5/v[0]*x**2)
         sne = bounds.est_spec_norm_equi(x,y,int(1*N),np.array([1*B]),np.array([[-span/2.0,span/2.0]]))
         rel_er = np.abs(sne-sng)/sng
-        msg = f'analytic = {sng}, dft-based = {sne}'
+        msg = f'equispaced to equispaced 1-d analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,1e-1,msg=msg)
 
     def test_est_spec_norm_rand_1d(self):
@@ -39,7 +39,7 @@ class TestSpecNormMethods(unittest.TestCase):
         y = np.exp(-0.5/v[0]*x**2)
         sne = bounds.est_spec_norm_equi(x,y,int(10*N),np.array([(B)]),np.array([[-span/2.0,span/2.0]]),'nu_dft_fast',8.0)
         rel_er = np.abs(sne-sng)/sng
-        msg = f'analytic = {sng}, dft-based = {sne}'
+        msg = f'random to equispaced 1-d analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,3e-1,msg=msg)
 
     def test_est_spec_norm_equi_2d(self):
@@ -59,7 +59,7 @@ class TestSpecNormMethods(unittest.TestCase):
         spans = np.tile([-span/2.0,span/2.0],(2,1))
         sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]*2),spans,'nu_dft_fast')
         rel_er = np.abs(sne-sng)/sng
-        msg = f'analytic = {sng}, dft-based = {sne}'
+        msg = f'equispaced to equispaced 2-d analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,1e-1,msg=msg)
 
     def test_est_spec_norm_rand_2d(self):
@@ -77,7 +77,7 @@ class TestSpecNormMethods(unittest.TestCase):
         spans = np.tile([-span/2.0,span/2.0],(2,1))
         sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]*2),spans,'nu_dft_fast',16.0)
         rel_er = np.abs(sne-sng)/sng
-        msg = f'analytic = {sng}, dft-based = {sne}'
+        msg = f'random to equispaced 2-d analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,4e-1,msg=msg)
 
     def test_est_spec_norm_rand_2d_explicit(self):
@@ -112,7 +112,7 @@ class TestSpecNormMethods(unittest.TestCase):
 
         #sne = bounds.est_spec_norm(f,yf,np.array([B,B]),mask)
         rel_er = np.abs(sne-sng)/sng
-        msg = f'analytic = {sng}, dft-based = {sne}'
+        msg = f'random to equispaced explicit 2-d analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,4e-1,msg=msg)
 
     def test_est_spec_norm_equi_3d(self):
@@ -133,7 +133,7 @@ class TestSpecNormMethods(unittest.TestCase):
         spans = np.tile([-span/2.0,span/2.0],(3,1))
         sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]*3),spans,'nu_dft_cuda')
         rel_er = np.abs(sne-sng)/sng
-        msg = f'analytic = {sng}, dft-based = {sne}'
+        msg = f'equispaced to equispaced 3-d analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,5e-1,msg=msg)
         
     def test_est_spec_norm_rand_3d_explicit(self):
@@ -164,7 +164,7 @@ class TestSpecNormMethods(unittest.TestCase):
         #sne = bounds.est_spec_norm(f,yf,np.array([2,2,2]),mask)
         sne = bounds.est_spec_norm(f,yf,None,mask)
         rel_er = np.abs(sne-sng)/sng
-        msg = f'analytic = {sng}, dft-based = {sne}'
+        msg = f'random to equispaced explicit 3-d analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,6e-1,msg=msg)
 
     def test_est_spec_norm_rand_rand_6d_explicit(self):
@@ -196,7 +196,7 @@ class TestSpecNormMethods(unittest.TestCase):
         #sne = bounds.est_spec_norm(f,yf,np.array([4,4,4,4,4,4]),mask)
         rel_er = np.abs(sne-sng)/sng
         print(" here is the results {} {} {}".format(sng,sne,rel_er))
-        msg = f'analytic = {sng}, dft-based = {sne}'
+        msg = f'random to random explicit 6-d analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,3e0,msg=msg)
 
     def test_opt_bound(self):
