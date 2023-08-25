@@ -357,6 +357,9 @@ def apriori_bound(spectral_norm: float, width: float, sample_size: float, dimens
     Returns:
         A number bounding the expected value of the squared error
     '''
+    
+    # JAM, the eqs. 152 and 153 are for classification
+    
     c = 3.289868133696453 #2*np.pi**2/6
     cidelta = c/(1.0 - confidence)
     iss = 2.0/sample_size
@@ -387,6 +390,41 @@ def apriori_bound(spectral_norm: float, width: float, sample_size: float, dimens
     # return 3*spectral_norm**2/width + 4*greek_lambda*spectral_norm + 1/2*np.sqrt(2*np.log(
     #        8*c*spectral_norm**2/delta)/sample_size) + 1/2*np.sqrt(2*np.log(
     #        2*c*theta_bound**2/delta)/sample_size)
+    
+    
+def apriori_E_bound(spectral_norm: float, width: float, sample_size: float, dimension: float,
+                confidence: float):
+    '''
+    Calculate the bound for the x-values given using derivation based on E's paper
+    Estimate the bound on the expected square error of the output of the neural
+    network found by optimizing the path-norm regularized loss of E et al. That is, the
+    error is a combination of approximaton and estimation error.
+
+    Args:
+        spectral_norm: spectral norm of the function
+        width: width of shallow neural network
+        sample_size: number of samples the network has been trained on
+        dimension: dimension of the data
+        confidence: confidence interval, 1 - delta (must be between 0 and 1, exclusive)
+    
+    Returns:
+        A number bounding the expected value of the squared error
+    '''
+    
+    # JAM, this actually matches what is in E
+    
+    c = 3.289868133696453 #2*np.pi**2/6
+    cidelta = c/(1.0 - confidence)
+    iss = 2.0/sample_size
+    greek_lambda = 4.0*np.sqrt(np.log(2.0*dimension)*iss)
+    igreek_lambda = 1.0/greek_lambda
+    sn2 = spectral_norm*spectral_norm
+    iwidth = 1.0/width
+
+    b1 =  0.5*np.sqrt(np.log(4.0*sn2*cidelta)*iss)
+    t = 3.0*sn2*iwidth
+
+    return t + 4.0*greek_lambda*spectral_norm + b1
 
 
 def nn_wnorm(weights):
