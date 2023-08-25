@@ -265,77 +265,6 @@ class TwoLayerNetwork:
         p_norm = np.sum(np.abs(self.c)*(wnorms+np.abs(self.b)))
         return p_norm
     
-
-
-def est_bounds(x,y,m,trials,Nd,B,nn,use_cuda=False,cuda_blocks=128,cuda_threads=64):
-    '''
-    Estimate the optimization error bound of a single hidden layer network
-    for a function described with input and output data
-    Args:
-        x: Nxd array representing N samples of d-dimensional input
-        y: the corresponding function outputs
-        m: the number of nodes of the hidden layer
-        trials: Number of trials to pull m nodes from E pdf
-        Nd: number of frequencies per dimension
-        B: bandwidth in each frequency dimension (assumed the same for each dimension)
-        nn: trained two-layer network
-        use_cuda: use a CUDA enabled variant of the DFT
-        cuda_blocks: number of CUDA blocks to use
-        cuda_threads: number of CUDA threads to use
-    Return:
-        An estimate of the error between an ideally (theorectical) trained network and a real network, divided into bias and variance
-        
-    '''
-    [N,d] = x.shape
-
-
-    f,_ = mt.gen_stacked_equispaced_nd_grid(Nd,np.array([[-B/2,B/2]]*d))
-    if use_cuda:
-        yf = dft.nu_dft_cuda(x,y,f,cuda_blocks,cuda_threads)
-    else:
-        yf = dft.nu_dft_fast(x,y,f)
-
-    # JAM, I think I am still missing one of the corrections for the yf
-    # we are using dft, so we have sampling, overall normalization doesn't matter?
-    # yf = (1/x.shape[0])*yf
-    # yf = yf[dft.threshold_mask(yf,x.shape[0],threshold)]
-
-
-    p = E_pdf(yf,f.T*np.pi*2.0)
-
-    y_thetap = nn.evaluate(x)
-    
-    # TLR,
-    # randomly pull sets of parameters from the estimated distribution
-    # does randomly pulling actually make sense? Should it not be more valid to use the values
-    # of the distribution directly. 
-
-    # Note that each calculation in the loop below is itself an estimate, since
-    # what is desired is the expected value of (f1(x)-f2(x))^2, which is
-    # equivalent to the pdf weighted integral of the squared error. We only
-    # have a finite set of samples, x. Those x are presumed to represent the
-    # underlying distribution, but can never cover the gigantic set of possible
-    # value for many problems. 
-
-    opt_bias = 0
-    opt_bound = 0
-    for tr in range(trials):
-        t_nn = p.gen_nn(m)
-        y_theta = t_nn.evaluate(x)
-        er = (np.mean(y_theta-y_thetap))**2
-        er2 = np.mean((y_theta-y_thetap)**2)
-        opt_bias += er
-        opt_bound += er2
-    opt_bound /= trials
-    opt_bias /= trials
-
-    two_pi = 2.0*np.pi
-    spec_norm = est_spec_norm(f*two_pi,yf,B*two_pi)
-    # JAM, we need to include variance to create a spec_norm^*
-    ap_bound = apriori_bound(spec_norm,m,N,d,0.99)
-    tot_bound = ap_bound+opt_bound
-
-    return tot_bound,ap_bound,opt_bound,opt_bias
         
 
 
@@ -346,6 +275,8 @@ def apriori_bound(spectral_norm: float, width: float, sample_size: float, dimens
     Estimate the bound on the expected square error of the output of the neural
     network found by optimizing the path-norm regularized loss of E et al. That is, the 
     error is a combination of approximaton and estimation error. 
+
+    This bound assumes that the spectral norm is greater than 1.
 
     Args:
         spectral_norm: spectral norm of the function
