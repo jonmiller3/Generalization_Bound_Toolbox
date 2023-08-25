@@ -4,6 +4,9 @@ import numpy as np
 import unittest
 import time
 
+import matplotlib.pyplot as plt
+
+
 class TestDFTMethods(unittest.TestCase):
     def test_1d(self):
         N = 16
@@ -16,7 +19,10 @@ class TestDFTMethods(unittest.TestCase):
         yf = dft.nu_dft(x,y,f)
 
         er = np.max(np.abs(yf-yf_fft))
-        self.assertAlmostEqual(er,0.0,places=13)
+        
+        msg = f' 1d '
+        
+        self.assertAlmostEqual(er,0.0,places=13,msg=msg)
 
     def test_2d(self):
         N = 16
@@ -33,7 +39,32 @@ class TestDFTMethods(unittest.TestCase):
         yf = dft.nu_dft(xg,y.flatten()[:,None],fg)
 
         er = np.max(np.abs(yf-yf_fft.reshape((M*M,1))))
-        self.assertAlmostEqual(er,0.0,places=11)
+        
+        msg = f' 2d '
+
+        self.assertAlmostEqual(er,0.0,places=11,msg=msg)
+
+    def test_2d_random_threshold(self):
+        N = 80
+        span = 6
+        x = (np.random.rand(2400*N).reshape(-1,2)*2-1)*span/2.0
+        y = (np.sin(2*np.pi*x[:,0])*np.sin(np.pi*x[:,1])+np.sin(np.pi*x[:,0])*np.sin(2*np.pi*x[:,1])).reshape(N*1200,1)
+
+        B = N/span
+        
+        f, _ = mt.gen_stacked_equispaced_nd_grid(N,np.array([[-Bt/2.0,Bt/2.0] for Bt in np.array([B,B])]))
+                
+        V = 60*60
+        spans = np.tile([-span/2.0,span/2.0],(2,1))
+        
+        yf = (V/x.shape[0])*dft.nu_dft_fast(x,y,f)/(np.sqrt(2*np.pi)**2)
+
+        mask =dft.threshold_cmask(yf,0.2)
+        
+        er = 0
+        msg = f' 2d random threshold '
+
+        self.assertLess(er,3e-1,msg=msg)
 
     def test_2d_fast(self):
         N = 16
@@ -50,7 +81,10 @@ class TestDFTMethods(unittest.TestCase):
         yf = dft.nu_dft_fast(xg,y.flatten()[:,None],fg)
 
         er = np.max(np.abs(yf-yf_fft.reshape((M*M,1))))
-        self.assertAlmostEqual(er,0.0,places=11)
+        
+        msg = f' 2d fast '
+        
+        self.assertAlmostEqual(er,0.0,places=11,msg=msg)
 
     def test_3d(self):
         N = 8
@@ -68,7 +102,10 @@ class TestDFTMethods(unittest.TestCase):
         yf = dft.nu_dft(xg,y.flatten()[:,None],fg)
 
         er = np.max(np.abs(yf-yf_fft.reshape((M**d,1))))
-        self.assertAlmostEqual(er,0.0,places=11)
+        
+        msg = f' 3d '
+
+        self.assertAlmostEqual(er,0.0,places=11,msg=msg)
 
 class TestDFTOnVectorMethods(unittest.TestCase):
     def test_dft_on_vector_1d(self):
@@ -81,7 +118,10 @@ class TestDFTOnVectorMethods(unittest.TestCase):
         yft = dft.dft_on_vector(x,y,u,w)
         
         er = np.sum(np.abs(yf-yft))/np.sum(np.abs(yf))
-        self.assertAlmostEqual(er,0,places=5)
+        
+        msg = f' vector 1d '
+        
+        self.assertAlmostEqual(er,0,places=5,msg=msg)
     def test_dft_on_vector_2d(self):
         N = 4
         x1 = np.arange(N).reshape((1,N))
@@ -121,6 +161,8 @@ class TestDFTOnVectorMethods(unittest.TestCase):
         yf_x_test = dft.dft_on_vector(x,yr,u,w)
 
         sub_check(yf_x,yf_x_test)
+        
+        print(' Done checking 2d vector ')
 
 
 if __name__ == '__main__':

@@ -7,10 +7,15 @@ import scipy.optimize as opt
 from geomloss import SamplesLoss
 
 
+import matplotlib.pyplot as plt
+
+
 ztw_c = CDLL(r'libztw.so')
 
 
-def est_spec_norm_from_data(x: np.array, y: np.array, B: np.array, f: np.array, S: np.array, nu_type='nu_dft_fast') -> float:
+    
+
+def est_spec_norm_from_data(x: np.array, y: np.array, B: np.array, f: np.array, S: np.array, nu_type='nu_dft_fast', threshold=0.0) -> float:
     '''Estimate the spectral norm from a set of inputs/ouputs
        given a set of frequencies at which to evaluate the Fourier transofrm
 
@@ -20,19 +25,22 @@ def est_spec_norm_from_data(x: np.array, y: np.array, B: np.array, f: np.array, 
             y: A size Nx1 array of outputs for the form y = f(x)
             B: The bandwidths in each dimension
             f: Kxd array of frequency vectors at which to evaluate the Fourier transform
+            threshold: Threshold for approximate FT. This is currently based on threshold*max(abs(yf))/sqrt(N) where yf is Fourier Transform
     '''
-    algs = {'nu_dft':dft.nu_dft,'nu_dft_fast':dft.nu_dft_fast,'nu_dft_faster':dft.nu_dft_faster}
+    algs = {'nu_dft':dft.nu_dft,'nu_dft_fast':dft.nu_dft_fast,'nu_dft_faster':dft.nu_dft_faster,'nu_dft_cuda':dft.nu_dft_cuda}
     alg = algs[nu_type]
     d = x.shape[1]        
 
     dS = S[:,1]-S[:,0]
     V = np.prod(dS)
 
-    yf = (V/x.shape[0])*alg(x,y,f)
+    yf = (V/x.shape[0])*alg(x,y,f)/(np.sqrt(2*np.pi)**d)
+    mask =dft.threshold_mask(yf,x.shape[0],threshold)
+    
     two_pi =2.0*np.pi
-    return est_spec_norm(f*two_pi,yf,B*two_pi)
+    return est_spec_norm(f*two_pi,yf,B*two_pi,mask)
 
-def est_spec_norm_random(x: np.array, y: np.array, K: int, B: np.array, S: np.array, nu_type='nu_dft_fast') -> float:
+def est_spec_norm_random(x: np.array, y: np.array, K: int, B: np.array, S: np.array, nu_type='nu_dft_fast', threshold=0.0) -> float:
     '''Estimate the spectral norm from a set of inputs/ouputs
        that represent a function using random frequency vectors
 
@@ -43,16 +51,19 @@ def est_spec_norm_random(x: np.array, y: np.array, K: int, B: np.array, S: np.ar
             K: The number of frequency vectors to randomly select
             B: The bandwidths in each dimension
             S: The domain of the inputs, a dx2 array
+            threshold: Threshold for approximate FT. This is currently based on threshold*max(abs(yf))/sqrt(N) where yf is Fourier Transform
     '''
     d = x.shape[1]    
     f = np.random.random_sample((K,d))-0.5
-    return est_spec_norm_from_data(x, y, B, f, S,nu_type)
+    return est_spec_norm_from_data(x, y, B, f, S,nu_type,threshold)
 
 def est_spec_norm_f(domain: np.array, f, N:int) -> float:
     '''Estimate the spectral norm of a function f given its domain in each dimension
        and the number of points in each dimension to sample f from
 
        Note this function should only be used for small dimension size
+       
+       Note that this requires an analytic function f
 
         Args:
             domain: dx2 array that describes the domain of the function (a hyper rectangle)
@@ -83,7 +94,7 @@ def est_spec_norm_f(domain: np.array, f, N:int) -> float:
     sn = np.prod(B)/(N**d)*np.sum(wn2*np.abs(yf))
     return sn
 
-def est_spec_norm_equi(x: np.array, y: np.array, M: int, B: np.array, S: np.array, nu_type='nu_dft_fast') -> float:
+def est_spec_norm_equi(x: np.array, y: np.array, M: int, B: np.array, S: np.array, nu_type='nu_dft_fast', threshold=0.0) -> float:
     '''Estimate the spectral norm from a set of inputs/ouputs
        that represent a function using equispaced frequencies
 
@@ -94,16 +105,17 @@ def est_spec_norm_equi(x: np.array, y: np.array, M: int, B: np.array, S: np.arra
             M: The number of equispaced frequencies in each dimension
             B: The bandwidths in each dimension
             S: The domain of the inputs, a dx2 array
+            threshold: Threshold for approximate FT. This is currently based on threshold*max(abs(yf))/sqrt(N) where yf is Fourier Transform
 
     '''
     
     d = x.shape[1]
     Bspans = np.array([[-Bt/2.0,Bt/2.0] for Bt in B])
-    f, _ = mt.gen_stacked_equispaced_nd_grid(M,Bspans)    
+    f, _ = mt.gen_stacked_equispaced_nd_grid(M,Bspans)
+    
+    return est_spec_norm_from_data(x, y, B, f, S,nu_type,threshold)
 
-    return est_spec_norm_from_data(x, y, B, f, S,nu_type)
-
-def est_spec_norm(w: np.array, yf: np.array, B=None) -> float:
+def est_spec_norm(w: np.array, yf: np.array, B=None, mask=None) -> float:
     '''Estimate the spectral norm given a finite set of frequeny vectors 
        and estimates of the Fourier transform at those vectors
 
@@ -116,13 +128,30 @@ def est_spec_norm(w: np.array, yf: np.array, B=None) -> float:
               of vectors. These values are in the continuous domain, (i.e. not limited to [-pi,pi])            
             yf: length M array of Fourier transform values
             B: radial bandwidths in each dimension
+            mask: M array of boolians for whether the Fourier transform valeus are included in the approximate Fourier transform or not.
        Returns:
            An estimate of the spectral norm
        '''
+       
+       
+    d=w.shape[1]
+    
+    assert w.shape[0]==yf.shape[0], " shapes mismatch, w should be Mxd and yf should be M"
     
     w2 = (np.sum(np.abs(w),axis=1)**2)[:,None] # 1 norm squared
-    w2yf = w2*np.abs(yf)
-    
+    if mask is not None:
+        if not mask.all():
+            w2yf = w2*np.abs(yf)*mask.astype(int)
+            frac_in_domain = sum(mask.astype(int))/len(mask)
+        else:
+            w2yf = w2*np.abs(yf)
+            frac_in_domain=1.
+    else:
+        w2yf = w2*np.abs(yf)
+        frac_in_domain=1.
+
+    #B = None
+
     # compute the bandwidth volume
     if B is None:
         mw = np.min(w,axis=0)
@@ -131,8 +160,10 @@ def est_spec_norm(w: np.array, yf: np.array, B=None) -> float:
     else:
         V = np.prod(B)
     
-    fac = V/np.prod(yf.shape) # volume over total number of points
-    return np.sum(w2yf)*fac
+    
+    # JAM, should this be w2yf.shape[0]
+    fac = V/yf.shape[0] # volume over total number of points
+    return np.sum(w2yf)*fac*np.sqrt(2*np.pi)**d
 
 def spec_norm_gaussian(var) -> float:
     '''Computes the analytical spectral norm of an n-d unscaled Gaussian
@@ -155,6 +186,26 @@ def spec_norm_gaussian(var) -> float:
     for i in range(d):
         s2 += np.sum(istd[i]*istd[i+1:])
     sn = (2.0*np.pi)**d*(s1+4.0/np.pi*s2)
+    return sn
+
+def spec_norm_sin(var) -> float:
+    '''Computes the analytical spectral norm of an n-d product of sins, \prod sin(n_i x_i)
+
+
+       Args:
+            var: a list or array of n_i, one for each dimension
+       Returns:
+            An analytical computation of the spectral norm
+    '''
+    var = np.array(var)
+    d = len(var)
+    w2 = 0
+
+    for i in range(d):
+        w2 += np.abs(var[i])
+    w2 = w2*w2
+    
+    sn = (2.0*np.pi)**d*w2
     return sn
 
 def path_norm_2layer(weights1,biases1,weights2,bias2=0):
@@ -216,7 +267,7 @@ class TwoLayerNetwork:
     
 
 
-def est_bounds(x,y,m,trials,Nd,B,nn,use_cuda=False,cuda_blocks=64,cuda_threads=64):
+def est_bounds(x,y,m,trials,Nd,B,nn,use_cuda=False,cuda_blocks=128,cuda_threads=64):
     '''
     Estimate the optimization error bound of a single hidden layer network
     for a function described with input and output data
@@ -232,7 +283,7 @@ def est_bounds(x,y,m,trials,Nd,B,nn,use_cuda=False,cuda_blocks=64,cuda_threads=6
         cuda_blocks: number of CUDA blocks to use
         cuda_threads: number of CUDA threads to use
     Return:
-        An estimate of the error between an ideally (theorectical) trained network and a real network
+        An estimate of the error between an ideally (theorectical) trained network and a real network, divided into bias and variance
         
     '''
     [N,d] = x.shape
@@ -244,10 +295,17 @@ def est_bounds(x,y,m,trials,Nd,B,nn,use_cuda=False,cuda_blocks=64,cuda_threads=6
     else:
         yf = dft.nu_dft_fast(x,y,f)
 
+    # JAM, I think I am still missing one of the corrections for the yf
+    # we are using dft, so we have sampling, overall normalization doesn't matter?
+    # yf = (1/x.shape[0])*yf
+    # yf = yf[dft.threshold_mask(yf,x.shape[0],threshold)]
+
+
     p = E_pdf(yf,f.T*np.pi*2.0)
 
     y_thetap = nn.evaluate(x)
     
+    # TLR,
     # randomly pull sets of parameters from the estimated distribution
     # does randomly pulling actually make sense? Should it not be more valid to use the values
     # of the distribution directly. 
@@ -259,21 +317,25 @@ def est_bounds(x,y,m,trials,Nd,B,nn,use_cuda=False,cuda_blocks=64,cuda_threads=6
     # underlying distribution, but can never cover the gigantic set of possible
     # value for many problems. 
 
+    opt_bias = 0
     opt_bound = 0
     for tr in range(trials):
         t_nn = p.gen_nn(m)
         y_theta = t_nn.evaluate(x)
-        er = np.mean((y_theta-y_thetap)**2)
-        opt_bound += er
+        er = (np.mean(y_theta-y_thetap))**2
+        er2 = np.mean((y_theta-y_thetap)**2)
+        opt_bias += er
+        opt_bound += er2
     opt_bound /= trials
+    opt_bias /= trials
 
     two_pi = 2.0*np.pi
     spec_norm = est_spec_norm(f*two_pi,yf,B*two_pi)
+    # JAM, we need to include variance to create a spec_norm^*
     ap_bound = apriori_bound(spec_norm,m,N,d,0.99)
     tot_bound = ap_bound+opt_bound
 
-
-    return tot_bound,ap_bound,opt_bound
+    return tot_bound,ap_bound,opt_bound,opt_bias
         
 
 
@@ -309,6 +371,7 @@ def apriori_bound(spectral_norm: float, width: float, sample_size: float, dimens
 
     return t + 4.0*greek_lambda*spectral_norm + b1 + 0.5*np.sqrt(np.log(
            theta_bound*theta_bound*cidelta)*iss)
+    # TLR,
     # the following is a direct implementation and is substantially slower
     # c = np.pi**2/6
     # delta = 1 - confidence
@@ -325,34 +388,20 @@ def apriori_bound(spectral_norm: float, width: float, sample_size: float, dimens
     #        8*c*spectral_norm**2/delta)/sample_size) + 1/2*np.sqrt(2*np.log(
     #        2*c*theta_bound**2/delta)/sample_size)
 
-def nn_wnorm_dist_2d(outer_weights,inner_weights,nbins):
-    '''
-    single hidden layer nn E distribution approximation
-
-    Args:
-        outer_weights - length M array of outer weights
-        inner_weights - 2 x M array of inner weights
-
-    '''
-    c = outer_weights
-    a = inner_weights
-    na = np.sum(a,axis=0) # 1-norm
-
-    th = np.atan2(a[1,:],a[0,:])
-
-    bins = np.linspace(-np.pi,np.pi,nbins+1,endpoint=True)
-
-    h,_ = np.histogram(th,bins=bins,weights=c/na)
 
 def nn_wnorm(weights):
-    '''                                                                                                                                                                 
-                                                                                                                                                                        
-    Args:                                                                                                                                                               
-        inner_weights - d x M array of inner weights                                                                                                                    
-                                                                                                                                                                        
     '''
+    
+    Args:
+        inner_weights - d x M array of inner weights
+    Returns:
+        A numpy array of size d X M of inner weights divided by the 1-norm of the inner weights.
+        The 1-norm of the inner weights.
+                        
+    '''
+    # JAM, Is this used somewhere?
     a = weights
-    na = np.sum(np.abs(a),axis=0) # 1-norm                                                                                                                                      
+    na = np.sum(np.abs(a),axis=0) # 1-norm
     th = np.multiply(a,1./na)
     
     return th,na
@@ -379,11 +428,12 @@ class E_pdf:
         Initialize class with Fourier tranform
 
         Args:
-            FT - Fourier tranform values, length n array, where is the number of 
+            FT - Fourier tranform values, length nx1 array, where n is the number of
                  frequency vectors
             w - Radial frequency vectors at which the FT is computed
                 dxn array where d is the dimension of the vectors
                 and n is the number of frequency vectors
+                Note that if you use f from the toolbox, you need to provide f*2*np.pi
             
 
         '''             
@@ -391,12 +441,14 @@ class E_pdf:
 
         aFT = np.abs(FT)       
 
+        # TLR,
         # the following 4 are only used for display, can be removed at
         # some point if needed
-        self.weighted_FTmag = aFT*(magw*magw)
+        self.weighted_FTmag = np.multiply(aFT,np.multiply(magw,magw).reshape(-1,1))
         self.FTangle = np.angle(FT)
         self.w = w
         self.magw = magw
+        # TLR,
         # no need to deal with 0 values, so get rid of em
         inds = np.where(aFT>0)[0]
         self.weighted_FTmag_f = self.weighted_FTmag[inds]
@@ -414,7 +466,9 @@ class E_pdf:
             the set of the highest values such that their sum is 95% of the sum
             over all values)
 
-        ''' 
+        '''
+        # JAM, this should in general be handled at the Fourier transform stage
+        # since that is where you have the required information
         sy = np.sort(y)[::-1] # descending order
         csy = np.cumsum(sy)
         tot = csy[-1]
@@ -497,6 +551,8 @@ class E_pdf:
         Return
             A TwoLayerNetwork object
         '''
+        
+        # JAM, we need to divide s by spectral norm
         z,t,w,s=self.gen_ztw_c(m) # z,t, and w comprise the parameters vector theta used in math descriptions
         sw = np.sum(np.abs(w),axis=0)[None,:]
         nw = w*(z*(1/sw))        
@@ -515,6 +571,7 @@ def wasserstein_metric(samples_a: np.array, samples_b: np.array) -> float:
         The square root of the minimum sum of the squared distances between the two
         sets of points
     '''
+    # TLR,
     # First calculate all pairwise distances
     n_pts = samples_a.shape[0]
     cost = np.zeros((n_pts, n_pts)) # Where the distances will be stored

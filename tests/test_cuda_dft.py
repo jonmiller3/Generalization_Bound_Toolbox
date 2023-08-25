@@ -11,7 +11,10 @@ def time_it(f,xg,yg,fg,blocks=None,threads=None,approx=False):
         dt = time.time()-t1
         print(f'{f.__name__} time : {dt}')
     else:
-        yf = f(xg,yg,fg,blocks,threads,approx)
+        # JAM, we should actually check if it is cuda directly
+        yf = f(xg,yg,fg,blocks,threads)
+        if approx:
+            yf = yf[dft.threshold_mask(yf,x.shape[0],threshold)]
         dt = time.time()-t1
         print(f'{f.__name__}[{blocks}][{threads}](approx={approx}) time : {dt}')
 
@@ -52,6 +55,8 @@ N =64 # samples per dimension
 d = 2 # number of dimensions
 xg,yg,fg = gen_1(N,d)
 
+print('Equispaced Samples')
+
 dt1 = time_it(dft.nu_dft_fast,xg,yg,fg)
 dt2 = time_it(dft.nu_dft_faster,xg,yg,fg)
 dt3 = time_it(dft.nu_dft_cuda,xg,yg,fg,(N**d)//1024,1024)
@@ -63,6 +68,9 @@ N = 1000
 d = 6
 M = 16
 xg,yg,fg = gen_2(N,d,M)
+
+print('Arbitrary Samples')
+
 dt1 = time_it(dft.nu_dft_fast,xg,yg,fg)
 dt2 = time_it(dft.nu_dft_faster,xg,yg,fg)
 dt3 = time_it(dft.nu_dft_cuda,xg,yg,fg,(M**d)//1024,1024)

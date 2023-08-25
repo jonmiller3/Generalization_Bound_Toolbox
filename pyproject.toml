@@ -18,9 +18,9 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-  "numpy==1.23.2",
+  "numpy==1.24.3",
   "numba==0.57.0",
-  "scipy==1.9.1",
+  "scipy==1.10.1",
   "geomloss==0.2.6",
 ]
 
