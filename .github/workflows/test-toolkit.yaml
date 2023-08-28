@@ -24,7 +24,9 @@ jobs:
 
     - name: Install dependencies
       shell: bash
-      run: $CONDA/bin/conda install pytorch torchvision torchaudio pytorch-cuda=11.6 cuda-toolkit=11.6 numba python-build pytorch -c nvidia numpy=1.24.3 scipy=1.10.1 geomloss=0.2.6
+      run: |
+        $CONDA/bin/conda install pytorch torchvision torchaudio pytorch-cuda=11.6 cuda-toolkit=11.6 numba python-build pytorch -c nvidia 
+        pip install numpy==1.24.3 scipy==1.10.1 geomloss==0.2.6
 
     - name: Build with pybuild 
       run: |
