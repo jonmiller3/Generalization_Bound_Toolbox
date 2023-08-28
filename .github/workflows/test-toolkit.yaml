@@ -26,7 +26,7 @@ jobs:
       shell: bash
       run: |
         $CONDA/bin/conda install pytorch torchvision cuda-toolkit=11.6 numba python-build pytorch -c nvidia 
-        pip install numpy==1.24.3 scipy==1.10.1 geomloss==0.2.6 torchaudio
+        pip install numpy==1.24.3 scipy==1.10.1 geomloss==0.2.6
 
     - name: Build with pybuild 
       run: |
@@ -42,6 +42,6 @@ jobs:
     
     - name: Test with unittest
       run: |
-       python3 tests/test_bounds.py
-       python3 tests/test_cuda_dft.py 
-       python3 tests/test_dft.py 
+       LD_LIBRARY_PATH=/usr/local/lib/gbtoolbox/ python3 tests/test_bounds.py
+       LD_LIBRARY_PATH=/usr/local/lib/gbtoolbox/ python3 tests/test_cuda_dft.py 
+       LD_LIBRARY_PATH=/usr/local/lib/gbtoolbox/ python3 tests/test_dft.py
