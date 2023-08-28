@@ -30,6 +30,7 @@ jobs:
 
     - name: Build with pybuild 
       run: |
+        pip install build
         python -m build
         pip install dist/gbtoolbox-*.whl
 
