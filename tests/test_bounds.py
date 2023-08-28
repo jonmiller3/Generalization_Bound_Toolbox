@@ -5,7 +5,7 @@ import numpy as np
 import unittest
 import time
 
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 from scipy import interpolate
 from scipy.interpolate import RBFInterpolator
