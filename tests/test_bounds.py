@@ -129,7 +129,6 @@ class TestSpecNormMethods(unittest.TestCase):
 
         spans = np.tile([-span/2.0,span/2.0],(3,1))
         sne = 0
-        print(numba.cuda.gpus)
         if torch.cuda.is_available():
             sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]*3),spans,'nu_dft_cuda')            
         else:
