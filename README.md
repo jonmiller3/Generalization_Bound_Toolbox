@@ -1,6 +1,6 @@
 # Generalization_Bound_Toolbox
 
-Tools related to computing generlization error bounds for machine-learning applications. Note that standard use depends on the domain of the target functions to be #x \in (-1,1)^d# where $d$ is the dimension of the feature vectors. If your feature vectors are not in this domain, than they can be rescaled. Additionally, best results are if there is small correlation between any two components of the feature vector.
+Tools related to computing generlization error bounds for machine-learning applications. Note that standard use depends on the domain of the target functions to be x \in (-1,1)^d where d is the dimension of the feature vectors. If your feature vectors are not in this domain, than they can be rescaled. Additionally, best results are if there is small correlation between any two components of the feature vector.
 
 
 # Installation
