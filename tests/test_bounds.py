@@ -4,7 +4,6 @@ import gbtoolbox.dft as dft
 import numpy as np
 import unittest
 
-
 class TestSpecNormMethods(unittest.TestCase):
     def test_est_spec_norm_equi_1d(self):
         
