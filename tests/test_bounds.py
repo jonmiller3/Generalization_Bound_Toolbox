@@ -3,12 +3,7 @@ import gbtoolbox.misc as mt
 import gbtoolbox.dft as dft
 import numpy as np
 import unittest
-import time
 
-import matplotlib.pyplot as plt
-
-from scipy import interpolate
-from scipy.interpolate import RBFInterpolator
 
 class TestSpecNormMethods(unittest.TestCase):
     def test_est_spec_norm_equi_1d(self):

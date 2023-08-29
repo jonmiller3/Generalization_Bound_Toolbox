@@ -2,9 +2,6 @@ import gbtoolbox.dft as dft
 import gbtoolbox.misc as mt
 import numpy as np
 import unittest
-import time
-
-import matplotlib.pyplot as plt
 
 
 class TestDFTMethods(unittest.TestCase):

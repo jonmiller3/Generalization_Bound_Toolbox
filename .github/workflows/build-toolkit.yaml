@@ -1,7 +1,6 @@
 
-name: test-toolkit
-
-on: push
+name: build-toolkit
+on: release 
 
 jobs:
   test:
@@ -26,7 +25,7 @@ jobs:
       shell: bash
       run: |
         $CONDA/bin/conda install pytorch torchvision cuda-toolkit=11.6 numba python-build pytorch -c nvidia 
-        pip install numpy==1.24.3 scipy==1.10.1 geomloss==0.2.6
+        pip install numpy==1.24.3 scipy==1.10.1 geomloss==0.2.6 torchaudio
 
     - name: Build with pybuild 
       run: |
@@ -40,8 +39,8 @@ jobs:
         make && make install
         export LD_LIBRARY_PATH=/usr/local/lib/gbtoolbox/
     
-    - name: Test with unittest
-      run: |
-       LD_LIBRARY_PATH=/usr/local/lib/gbtoolbox/ python3 tests/test_bounds.py
-       LD_LIBRARY_PATH=/usr/local/lib/gbtoolbox/ python3 tests/test_cuda_dft.py 
-       LD_LIBRARY_PATH=/usr/local/lib/gbtoolbox/ python3 tests/test_dft.py
+    - name: Release to PyPi 
+      if: startsWith(github.ref, 'refs/tags')
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ secrets.PYPI_API_TOKEN }}
