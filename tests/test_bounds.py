@@ -129,9 +129,12 @@ class TestSpecNormMethods(unittest.TestCase):
 
         spans = np.tile([-span/2.0,span/2.0],(3,1))
         sne = 0
+        print(numba.cuda.gpus)
         if torch.cuda.is_available():
-            sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]*3),spans,'nu_dft_cuda')
+            sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]*3),spans,'nu_dft_cuda')            
         else:
+            print(" Cuda is recommended for this test ")
+            return            
             sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]*3),spans)
         rel_er = np.abs(sne-sng)/sng
         msg = f'gaussian equispaced to equispaced 3-d analytic = {sng}, dft-based = {sne}'
@@ -159,6 +162,8 @@ class TestSpecNormMethods(unittest.TestCase):
         if torch.cuda.is_available():        
             yf = (V/x.shape[0])*dft.nu_dft_cuda(x,y,f,128,128)/(np.sqrt(2*np.pi)**2)
         else:
+            print(" Cuda is recommended for this test ")
+            return            
             yf = (V/x.shape[0])*dft.nu_dft(x,y,f)/(np.sqrt(2*np.pi)**2)            
         mask =dft.threshold_cmask(yf,2.0)
         
