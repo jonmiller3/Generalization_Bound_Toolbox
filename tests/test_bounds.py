@@ -128,7 +128,11 @@ class TestSpecNormMethods(unittest.TestCase):
         B = N/span
 
         spans = np.tile([-span/2.0,span/2.0],(3,1))
-        sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]*3),spans,'nu_dft_cuda')
+        sne = 0
+        if torch.cuda.is_available():
+            sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]*3),spans,'nu_dft_cuda')
+        else:
+            sne = bounds.est_spec_norm_equi(x,y,N,np.array([B]*3),spans)
         rel_er = np.abs(sne-sng)/sng
         msg = f'gaussian equispaced to equispaced 3-d analytic = {sng}, dft-based = {sne}'
         self.assertLess(rel_er,5e-1,msg=msg)
@@ -152,8 +156,10 @@ class TestSpecNormMethods(unittest.TestCase):
         V = span*span*span
         spans = np.tile([-span/2.0,span/2.0],(3,1))
 
-        
-        yf = (V/x.shape[0])*dft.nu_dft_cuda(x,y,f,128,128)/(np.sqrt(2*np.pi)**2)
+        if torch.cuda.is_available():        
+            yf = (V/x.shape[0])*dft.nu_dft_cuda(x,y,f,128,128)/(np.sqrt(2*np.pi)**2)
+        else:
+            yf = (V/x.shape[0])*dft.nu_dft(x,y,f)/(np.sqrt(2*np.pi)**2)            
         mask =dft.threshold_cmask(yf,2.0)
         
         f=f*2.0*np.pi
