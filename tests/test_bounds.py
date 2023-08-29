@@ -3,6 +3,9 @@ import gbtoolbox.misc as mt
 import gbtoolbox.dft as dft
 import numpy as np
 import unittest
+import time
+
+import torch
 
 class TestSpecNormMethods(unittest.TestCase):
     def test_est_spec_norm_equi_1d(self):
@@ -178,8 +181,11 @@ class TestSpecNormMethods(unittest.TestCase):
         V = span*span*span*span*span*span
         spans = np.tile([-span/2.0,span/2.0],(6,1))
 
-        
-        yf = (V/x.shape[0])*dft.nu_dft_cuda(x,y,f,256,128)/(np.sqrt(2*np.pi)**5)
+        if torch.cuda.is_available():
+            yf = (V/x.shape[0])*dft.nu_dft_cuda(x,y,f,256,128)/(np.sqrt(2*np.pi)**5)
+        else:
+            print(" Cuda is recommended for this test ")
+            return
         #mask =dft.threshold_mask(yf,x.shape[0],16.0)
         mask =dft.threshold_cmask(yf,85.0)
 

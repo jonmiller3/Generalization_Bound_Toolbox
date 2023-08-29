@@ -7,7 +7,6 @@ import scipy.optimize as opt
 from geomloss import SamplesLoss
 
 
-
 ztw_c = CDLL(r'libztw.so')
 
 

@@ -2,6 +2,7 @@ import gbtoolbox.dft as dft
 import gbtoolbox.misc as mt
 import numpy as np
 import time
+import torch
 
 # This is a timing test
 def time_it(f,xg,yg,fg,blocks=None,threads=None,approx=False):
@@ -59,9 +60,10 @@ print('Equispaced Samples')
 
 dt1 = time_it(dft.nu_dft_fast,xg,yg,fg)
 dt2 = time_it(dft.nu_dft_faster,xg,yg,fg)
-dt3 = time_it(dft.nu_dft_cuda,xg,yg,fg,(N**d)//1024,1024)
-dt4 = time_it(dft.nu_dft_cuda,xg,yg,fg,N,N)
-dt5 = time_it(dft.nu_dft_cuda,xg,yg,fg,N,N,True)
+if torch.cuda.is_available():
+    dt3 = time_it(dft.nu_dft_cuda,xg,yg,fg,(N**d)//1024,1024)
+    dt4 = time_it(dft.nu_dft_cuda,xg,yg,fg,N,N)
+    dt5 = time_it(dft.nu_dft_cuda,xg,yg,fg,N,N,True)
 
 # arbitrary samples example
 N = 1000
@@ -73,8 +75,9 @@ print('Arbitrary Samples')
 
 dt1 = time_it(dft.nu_dft_fast,xg,yg,fg)
 dt2 = time_it(dft.nu_dft_faster,xg,yg,fg)
-dt3 = time_it(dft.nu_dft_cuda,xg,yg,fg,(M**d)//1024,1024)
-dt4 = time_it(dft.nu_dft_cuda,xg,yg,fg,M**(d-1),M)
-dt5 = time_it(dft.nu_dft_cuda,xg,yg,fg,M**(d-1),M,True)
+if torch.cuda.is_available():
+    dt3 = time_it(dft.nu_dft_cuda,xg,yg,fg,(M**d)//1024,1024)
+    dt4 = time_it(dft.nu_dft_cuda,xg,yg,fg,M**(d-1),M)
+    dt5 = time_it(dft.nu_dft_cuda,xg,yg,fg,M**(d-1),M,True)
 
                           
