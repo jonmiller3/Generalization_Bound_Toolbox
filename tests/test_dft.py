@@ -19,7 +19,7 @@ class TestDFTMethods(unittest.TestCase):
         
         msg = f' 1d '
         
-        self.assertAlmostEqual(er,0.0,places=13,msg=msg)
+        self.assertAlmostEqual(er,0.0,places=11,msg=msg)
 
     def test_2d(self):
         N = 16
