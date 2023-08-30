@@ -15,7 +15,7 @@ def time_it(f,xg,yg,fg,blocks=None,threads=None,approx=False):
         # JAM, we should actually check if it is cuda directly
         yf = f(xg,yg,fg,blocks,threads)
         if approx:
-            yf = yf[dft.threshold_mask(yf,x.shape[0],threshold)]
+            yf = yf[dft.threshold_mask(yf,xg.shape[0],1)]
         dt = time.time()-t1
         print(f'{f.__name__}[{blocks}][{threads}](approx={approx}) time : {dt}')
 
@@ -61,7 +61,7 @@ print('Equispaced Samples')
 dt1 = time_it(dft.nu_dft_fast,xg,yg,fg)
 dt2 = time_it(dft.nu_dft_faster,xg,yg,fg)
 if torch.cuda.is_available():
-    dt3 = time_it(dft.nu_dft_cuda,xg,yg,fg,(N**d)//1024,1024)
+    dt3 = time_it(dft.nu_dft_cuda,xg,yg,fg,(N**d)//1024,256)
     dt4 = time_it(dft.nu_dft_cuda,xg,yg,fg,N,N)
     dt5 = time_it(dft.nu_dft_cuda,xg,yg,fg,N,N,True)
 
@@ -76,7 +76,7 @@ print('Arbitrary Samples')
 dt1 = time_it(dft.nu_dft_fast,xg,yg,fg)
 dt2 = time_it(dft.nu_dft_faster,xg,yg,fg)
 if torch.cuda.is_available():
-    dt3 = time_it(dft.nu_dft_cuda,xg,yg,fg,(M**d)//1024,1024)
+    dt3 = time_it(dft.nu_dft_cuda,xg,yg,fg,(M**d)//1024,256)
     dt4 = time_it(dft.nu_dft_cuda,xg,yg,fg,M**(d-1),M)
     dt5 = time_it(dft.nu_dft_cuda,xg,yg,fg,M**(d-1),M,True)
 
