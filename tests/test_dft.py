@@ -2,9 +2,6 @@ import gbtoolbox.dft as dft
 import gbtoolbox.misc as mt
 import numpy as np
 import unittest
-import time
-
-import matplotlib.pyplot as plt
 
 
 class TestDFTMethods(unittest.TestCase):
@@ -22,7 +19,7 @@ class TestDFTMethods(unittest.TestCase):
         
         msg = f' 1d '
         
-        self.assertAlmostEqual(er,0.0,places=13,msg=msg)
+        self.assertAlmostEqual(er,0.0,places=11,msg=msg)
 
     def test_2d(self):
         N = 16

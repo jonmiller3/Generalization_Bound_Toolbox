@@ -1,0 +1,46 @@
+
+name: build-toolkit
+on: release 
+
+jobs:
+  test:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v2
+      with:
+        python-version: "3.8"
+        
+    - name: Update Pip
+      env:
+        ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
+      run: |
+        python -m ensurepip
+        python -m pip install --upgrade pip
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        $CONDA/bin/conda install pytorch torchvision cuda-toolkit=11.6 numba python-build pytorch -c nvidia 
+        pip install numpy==1.24.3 scipy==1.10.1 geomloss==0.2.6 torchaudio
+
+    - name: Build with pybuild 
+      run: |
+        pip install build
+        python -m build
+        pip install dist/gbtoolbox-*.whl
+
+    - name: Make and Install C dist 
+      run: |
+        cd src/gbtoolbox
+        make && make install
+        export LD_LIBRARY_PATH=/usr/local/lib/gbtoolbox/
+    
+    - name: Release to PyPi 
+      if: startsWith(github.ref, 'refs/tags')
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ secrets.PYPI_API_TOKEN }}
