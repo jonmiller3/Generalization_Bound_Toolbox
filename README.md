@@ -10,8 +10,6 @@ For directions on use, check out
 
 # Installation
 
-For now, this will not be placed on PyPi. So the following should be performed to manually install. 
-
 Install the build package
 
     pip install build
