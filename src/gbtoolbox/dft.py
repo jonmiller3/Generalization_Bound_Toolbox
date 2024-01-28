@@ -3,6 +3,7 @@ from numpy.ctypeslib import ndpointer
 import numpy as np
 from numba import cuda
 import math as math
+import cupy as cp
 
 
 misc_wrapper = CDLL(r'libft.so')
@@ -243,3 +244,131 @@ def nu_dft_cuda(x: np.array, y: np.array, f: np.array,b = 64, th = 64) -> np.arr
     yf = yfr+1j*yfi
     
     return yf
+
+
+class nu_dft_cupy:
+    def __init__(self,x,y,gpu_indices=(0,1),nutype='float16'):
+        self.N = x.shape[0]
+        self.d = x.shape[1]
+        if nutype=='int8':
+            print(" it seems likely that int8 is not optimized in cupy ")
+        self.gpu_indices = gpu_indices
+        self.n_gpu = len(self.gpu_indices)
+        self.streams = [None] * self.n_gpu
+        self.x = [None] * self.n_gpu
+        self.y = [None] * self.n_gpu
+        self.nutype = nutype
+        for gpu_id in self.gpu_indices:
+            with cp.cuda.Device(gpu_id):
+                self.y[gpu_id]=cp.asarray(y.reshape(-1,1).T,dtype='float32')
+                self.x[gpu_id]=cp.asarray(x,dtype=self.nutype)
+                self.streams[gpu_id] = cp.cuda.stream.Stream()
+    
+    def process_grid(self,grid_info,threshold,norm,gpu_id,indexing='xy'):
+        #print(N,domain)
+        
+        #print(np.arange(domain[0,0], domain[0,1], (domain[0,1]-domain[0,0])/N, dtype='float16'))
+        #x = [cp.linspace(dm[0].astype('float16'),dm[1].astype('float16'),dm[2],endpoint=False) for dm in grid_info]
+        with cp.cuda.Device(gpu_id):
+            #ff=cp.zeros((np.max()),dtype='float16')
+            #for i in cp.arange(grid_info.shape[0]):
+            #    if ff==0:
+            #        ff = cp.arange(grid_info[i,0], grid_info[i,1], (grid_info[i,1]-grid_info[i,0])/grid_info[i,2], dtype='float16')
+            #    else:
+            #        ff = cp.hstack(ff,cp.arange(grid_info[i,0], grid_info[i,1], (grid_info[i,1]-grid_info[i,0])/grid_info[i,2], dtype='float16'))
+            #
+            ff = [cp.arange(grid_info[i,0], grid_info[i,1], (grid_info[i,1]-grid_info[i,0])/grid_info[i,2], dtype=self.nutype) for i in np.arange(grid_info.shape[0])]
+            ff = cp.meshgrid(*ff, indexing=indexing)
+            dd = len(ff)
+            NN = ff[0].size
+            fff = [cp.reshape(xt,(NN,1)) for xt in ff]
+            f = cp.hstack(cp.array(fff))
+        #print(f.shape,self.x[gpu_id].shape)
+        cyc, syc = self.process(f,gpu_id)
+        # yf = cp.asnumpy(cyc)+1j*cp.asnumpy(syc)
+        with cp.cuda.Device(gpu_id):
+            yf = cyc + 1j*syc
+        #print(yf)
+            yf = yf*norm
+        #tyf = cp.abs(yf)>threshold
+            mff, eff = cp.frexp(np.sum(np.abs(f),axis=1).flatten())
+            fsum = cp.ldexp(cp.around(mff,1),eff)
+            yfu, yfuc = cp.unique(fsum, return_counts=True)
+            tyf = cp.sqrt(yf.real*yf.real+yf.imag*yf.imag)>threshold
+        #print(tyf)
+        return yf[tyf],f[tyf.flatten(),:],yfu,yfuc
+    
+    def process(self,f,gpu_id):
+        M = f.shape[0]
+        with cp.cuda.Device(gpu_id):
+            if self.nutype=='float16':
+                wc=cp.asarray(-2*np.pi*f.T,dtype='float16')
+            elif self.nutype=='int8':
+                wc=cp.asarray(f.T,dtype='int8')
+            else:
+                wc=cp.asarray(-2*np.pi*f.T,dtype='float32')
+                print(" default is float32 ")
+            self.streams[gpu_id].use()
+            cyc=cp.zeros((1,M),dtype='float32')
+            syc=cp.zeros((1,M),dtype='float32')
+            if M>MAXT:
+                #print(M,MAXT)
+                for i in cp.arange(int(M/MAXT)):
+                    #print(self.x[gpu_id].shape,wc[:,i*MAXT:(i+1)*MAXT].shape)
+                    if not self.nutype=='int8':
+                        wxc=cp.zeros((self.N,MAXT),dtype='float32')
+                        wxc=cp.matmul(self.x[gpu_id],wc[:,i*MAXT:(i+1)*MAXT])
+                    else:
+                        wxc=cp.zeros((self.N,MAXT),dtype='int16')
+                        wxc=cp.matmul(self.x[gpu_id],wc[:,i*MAXT:(i+1)*MAXT])
+                    self.streams[gpu_id].synchronize()
+                    if not self.nutype=='int8':
+                        cc=cp.cos(wxc)
+                        sc=cp.sin(wxc)
+                    else:
+                        cc=cp.cos(-1*np.pi*wxc/128)
+                        sc=cp.sin(-1*np.pi*wxc/128)
+                    self.streams[gpu_id].synchronize()
+                    cyc[:,i*MAXT:(i+1)*MAXT]=cp.matmul(self.y[gpu_id],cc)
+                    syc[:,i*MAXT:(i+1)*MAXT]=cp.matmul(self.y[gpu_id],sc)
+                #print(int(M/MAXT))
+                if int(M/MAXT)*MAXT<M:
+                    #print(" now doing this {} ".format(M*MAXT))
+                    if not self.nutype=='int8':
+                        #wxc=cp.zeros((self.N,MAXT),dtype='float32')
+                        wxc=cp.matmul(self.x[gpu_id],wc[:,int(M/MAXT)*MAXT:])
+                    else:
+                        #wxc=cp.zeros((self.N,MAXT),dtype='int16')
+                        wxc=cp.matmul(self.x[gpu_id],wc[:,int(M/MAXT)*MAXT:])
+                    #wxc=cp.matmul(self.x[gpu_id],wc[:,int(M/MAXT)*MAXT:])
+                    self.streams[gpu_id].synchronize()
+                    if not self.nutype=='int8':
+                        cc=cp.cos(wxc)
+                        sc=cp.sin(wxc)
+                    else:
+                        cc=cp.cos(-1*np.pi*wxc/128)
+                        sc=cp.sin(-1*np.pi*wxc/128)
+                    self.streams[gpu_id].synchronize()
+                    cyc[:,int(M/MAXT)*MAXT:]=cp.matmul(self.y[gpu_id],cc)
+                    syc[:,int(M/MAXT)*MAXT:]=cp.matmul(self.y[gpu_id],sc)
+            else:
+                #wxc=cp.matmul(self.x[gpu_id],wc)
+                if not self.nutype=='int8':
+                    #wxc=cp.zeros((self.N,MAXT),dtype='float32')
+                    wxc=cp.matmul(self.x[gpu_id],wc)
+                else:
+                    #wxc=cp.zeros((self.N,MAXT),dtype='int16')
+                    wxc=cp.matmul(self.x[gpu_id],wc)
+                self.streams[gpu_id].synchronize()
+                if not self.nutype=='int8':
+                    cc=cp.cos(wxc)
+                    sc=cp.sin(wxc)
+                else:
+                    cc=cp.cos(-1*np.pi*wxc/128)
+                    sc=cp.sin(-1*np.pi*wxc/128)
+                self.streams[gpu_id].synchronize()
+                cyc=cp.matmul(self.y[gpu_id],cc)
+                syc=cp.matmul(self.y[gpu_id],sc)
+            self.streams[gpu_id].synchronize()
+            return cyc, syc
+                

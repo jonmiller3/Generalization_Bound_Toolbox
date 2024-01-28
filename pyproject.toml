@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gbtoolbox"
-version = "0.0.1"
+version = "0.0.4"
 authors = [
   { name="Jonathan Miller", email="jon@euler-sci.com" },
   { name="Thomas Reinke", email="tom@euler-sci.com" },
@@ -23,6 +23,7 @@ dependencies = [
   "numba==0.57.0",
   "scipy==1.10.1",
   "geomloss==0.2.6",
+  "cupy",
 ]
 
 [project.urls]
