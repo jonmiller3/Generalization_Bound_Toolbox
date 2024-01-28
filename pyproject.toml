@@ -23,8 +23,10 @@ dependencies = [
   "numba==0.57.0",
   "scipy==1.10.1",
   "geomloss==0.2.6",
-  "cupy",
 ]
+
+[project.optional-dependencies]
+gpu = ["cupy"]
 
 [project.urls]
 "Homepage" = "https://github.com/jonmiller3/Generalization_Bound_Toolbox"
