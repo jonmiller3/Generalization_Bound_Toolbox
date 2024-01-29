@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gbtoolbox"
-version = "0.0.1"
+version = "0.0.4"
 authors = [
   { name="Jonathan Miller", email="jon@euler-sci.com" },
   { name="Thomas Reinke", email="tom@euler-sci.com" },
@@ -24,6 +24,9 @@ dependencies = [
   "scipy==1.10.1",
   "geomloss==0.2.6",
 ]
+
+[project.optional-dependencies]
+gpu = ["cupy"]
 
 [project.urls]
 "Homepage" = "https://github.com/jonmiller3/Generalization_Bound_Toolbox"

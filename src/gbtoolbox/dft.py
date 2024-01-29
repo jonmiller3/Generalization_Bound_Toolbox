@@ -3,7 +3,10 @@ from numpy.ctypeslib import ndpointer
 import numpy as np
 from numba import cuda
 import math as math
-
+try:
+    import cupy as cp
+except:
+    print(" cupy not imported ")
 
 misc_wrapper = CDLL(r'libft.so')
 
@@ -243,3 +246,174 @@ def nu_dft_cuda(x: np.array, y: np.array, f: np.array,b = 64, th = 64) -> np.arr
     yf = yfr+1j*yfi
     
     return yf
+
+
+class nu_dft_cupy:
+    '''Same fundamental idea of nu_dft, but providing better control and optimzied use of cublas (for float32 and float16). This can be 20x faster than nu_dft_cuda. Returns None if Cupy isn't installed.
+    ''' 
+    def __init__(self,x,y,gpu_indices=(0,1),nutype='float16',MAXT=256):
+        '''Initializes the nu_dft_cupy.
+        Args:
+            x: The features of the target function. Shape NxD.
+            y: The values of the function at each X, shape Nx1.
+            gpu_indices: Multi-GPU use is availalbe but not optimized.
+            nutype: What precision to use during the matrix multiplication. Recommended 'float16'.
+            MAXT: Device and problem specific value to determine best way to setup the cublas kernels. Recommended is 256.
+        
+
+        '''     
+        try:
+            print(" initializing with ",cp.__version__)
+        except:
+            print(" Cupy not installed ")
+            self.N = None
+            return
+
+        self.MAXT = MAXT
+        self.N = x.shape[0]
+        self.d = x.shape[1]
+        if nutype=='int8':
+            print(" it seems likely that int8 is not optimized in cupy ")
+        self.gpu_indices = gpu_indices
+        self.n_gpu = len(self.gpu_indices)
+        self.streams = [None] * self.n_gpu
+        self.x = [None] * self.n_gpu
+        self.y = [None] * self.n_gpu
+        self.nutype = nutype
+        for gpu_id in self.gpu_indices:
+            with cp.cuda.Device(gpu_id):
+                self.y[gpu_id]=cp.asarray(y.reshape(-1,1).T,dtype='float32')
+                self.x[gpu_id]=cp.asarray(x,dtype=self.nutype)
+                self.streams[gpu_id] = cp.cuda.stream.Stream()
+    
+    def process_grid(self,grid_info,threshold,norm,gpu_id,indexing='xy'):
+        '''Calculates the approximate Fourier transform on a grid..
+        Args:
+            grid_info: Information about the grid to set up. Shape dx3. Values are Maximum, minimum, delta.
+            threshold: It is recommended to run with a threshold, as most values are consistent with 0.
+            norm: Constant used when calculating the approximate Fourier transform.
+            gpu_id: What GPU to run on.
+            indexing: Recommended 'xy'
+
+        Returns:
+            yf: The values of the approximate Fourier transform at the returned frequencies. Shape Mx1. However, if a threshold is set the shape will be reduced to a subset due to values that are consistent with 0 being removed.
+            f: The frequencies where the approximate Fourier transform is calculated and where the approxiamte Fourier transform is not consistent with 0 (as determined by the threshold). Shape is Mxd.
+            yfu: Unique values for the 1-norm of the frequency, possibly useful in further analysis.
+            yfuc: Counts at each unique value for the 1-norm of the frequency, possibly useful in further analysis.
+        '''     
+        if self.N==None:
+            print(" Cupy not installed ")
+            return None
+        
+
+        with cp.cuda.Device(gpu_id):
+
+            ff = [cp.arange(grid_info[i,0], grid_info[i,1], (grid_info[i,1]-grid_info[i,0])/grid_info[i,2], dtype=self.nutype) for i in np.arange(grid_info.shape[0])]
+            ff = cp.meshgrid(*ff, indexing=indexing)
+            dd = len(ff)
+            NN = ff[0].size
+            fff = [cp.reshape(xt,(NN,1)) for xt in ff]
+            f = cp.hstack(cp.array(fff))
+
+        cyc, syc = self.process(f,gpu_id)
+
+        with cp.cuda.Device(gpu_id):
+            yf = cyc + 1j*syc
+
+            yf = yf*norm
+
+            mff, eff = cp.frexp(np.sum(np.abs(f),axis=1).flatten())
+            fsum = cp.ldexp(cp.around(mff,1),eff)
+            yfu, yfuc = cp.unique(fsum, return_counts=True)
+            tyf = cp.sqrt(yf.real*yf.real+yf.imag*yf.imag)>threshold
+
+        return yf[tyf],f[tyf.flatten(),:],yfu,yfuc
+    
+    def process(self,f,gpu_id):
+        '''Calculates the approximate Fourier transform.
+        Args:
+            f: Frequencies to calculate the approximate Fourier transform at. Shape Mxd.
+            gpu_id: What GPU to run on.
+
+        Returns:
+            syc: Imaginary values of the approximate Fourier transform. Shape Mx1.
+            cyc: Real values of the approximate Fourier transform. Shape Mx1.
+        '''
+        
+        if self.N==None:
+            print(" Cupy not installed ")
+            return None
+        
+        M = f.shape[0]
+        with cp.cuda.Device(gpu_id):
+            if self.nutype=='float16':
+                wc=cp.asarray(-2*np.pi*f.T,dtype='float16')
+            elif self.nutype=='int8':
+                wc=cp.asarray(f.T,dtype='int8')
+            else:
+                wc=cp.asarray(-2*np.pi*f.T,dtype='float32')
+                print(" default is float32 ")
+            self.streams[gpu_id].use()
+            cyc=cp.zeros((1,M),dtype='float32')
+            syc=cp.zeros((1,M),dtype='float32')
+            if M>self.MAXT:
+
+                for i in cp.arange(int(M/self.MAXT)):
+
+                    if not self.nutype=='int8':
+                        wxc=cp.zeros((self.N,self.MAXT),dtype='float32')
+                        wxc=cp.matmul(self.x[gpu_id],wc[:,i*self.MAXT:(i+1)*self.MAXT])
+                    else:
+                        wxc=cp.zeros((self.N,self.MAXT),dtype='int16')
+                        wxc=cp.matmul(self.x[gpu_id],wc[:,i*self.MAXT:(i+1)*self.MAXT])
+                    self.streams[gpu_id].synchronize()
+                    if not self.nutype=='int8':
+                        cc=cp.cos(wxc)
+                        sc=cp.sin(wxc)
+                    else:
+                        cc=cp.cos(-1*np.pi*wxc/128)
+                        sc=cp.sin(-1*np.pi*wxc/128)
+                    self.streams[gpu_id].synchronize()
+                    cyc[:,i*self.MAXT:(i+1)*self.MAXT]=cp.matmul(self.y[gpu_id],cc)
+                    syc[:,i*self.MAXT:(i+1)*self.MAXT]=cp.matmul(self.y[gpu_id],sc)
+
+                if int(M/self.MAXT)*self.MAXT<M:
+
+                    if not self.nutype=='int8':
+
+                        wxc=cp.matmul(self.x[gpu_id],wc[:,int(M/self.MAXT)*self.MAXT:])
+                    else:
+
+                        wxc=cp.matmul(self.x[gpu_id],wc[:,int(M/self.MAXT)*self.MAXT:])
+
+                    self.streams[gpu_id].synchronize()
+                    if not self.nutype=='int8':
+                        cc=cp.cos(wxc)
+                        sc=cp.sin(wxc)
+                    else:
+                        cc=cp.cos(-1*np.pi*wxc/128)
+                        sc=cp.sin(-1*np.pi*wxc/128)
+                    self.streams[gpu_id].synchronize()
+                    cyc[:,int(M/self.MAXT)*self.MAXT:]=cp.matmul(self.y[gpu_id],cc)
+                    syc[:,int(M/self.MAXT)*self.MAXT:]=cp.matmul(self.y[gpu_id],sc)
+            else:
+
+                if not self.nutype=='int8':
+
+                    wxc=cp.matmul(self.x[gpu_id],wc)
+                else:
+
+                    wxc=cp.matmul(self.x[gpu_id],wc)
+                self.streams[gpu_id].synchronize()
+                if not self.nutype=='int8':
+                    cc=cp.cos(wxc)
+                    sc=cp.sin(wxc)
+                else:
+                    cc=cp.cos(-1*np.pi*wxc/128)
+                    sc=cp.sin(-1*np.pi*wxc/128)
+                self.streams[gpu_id].synchronize()
+                cyc=cp.matmul(self.y[gpu_id],cc)
+                syc=cp.matmul(self.y[gpu_id],sc)
+            self.streams[gpu_id].synchronize()
+            return cyc, syc
+                
