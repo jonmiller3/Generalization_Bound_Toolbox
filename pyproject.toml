@@ -18,15 +18,16 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-  "torch==2.0.1",
-  "numpy==1.24.3",
-  "numba==0.57.0",
-  "scipy==1.10.1",
-  "geomloss==0.2.6",
+  "torch>=2.0.1",
+  "numpy>=1.24.3",
+  "numba>=0.57.0",
+  "scipy>=1.10.1",
+  "geomloss>=0.2.6",
 ]
 
 [project.optional-dependencies]
-gpu = ["cupy"]
+gpu11 = ["cupy-cuda11x"]
+gpu12 = ["cupy-cuda12x"]
 
 [project.urls]
 "Homepage" = "https://github.com/jonmiller3/Generalization_Bound_Toolbox"

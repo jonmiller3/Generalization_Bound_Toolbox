@@ -343,7 +343,8 @@ class nu_dft_cupy:
         if self.N==None:
             print(" Cupy not installed ")
             return None
-        
+
+
         M = f.shape[0]
         with cp.cuda.Device(gpu_id):
             if self.nutype=='float16':
@@ -374,6 +375,7 @@ class nu_dft_cupy:
                         cc=cp.cos(-1*np.pi*wxc/128)
                         sc=cp.sin(-1*np.pi*wxc/128)
                     self.streams[gpu_id].synchronize()
+                    
                     cyc[:,i*self.MAXT:(i+1)*self.MAXT]=cp.matmul(self.y[gpu_id],cc)
                     syc[:,i*self.MAXT:(i+1)*self.MAXT]=cp.matmul(self.y[gpu_id],sc)
 
