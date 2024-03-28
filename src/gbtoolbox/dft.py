@@ -275,14 +275,14 @@ class nu_dft_cupy:
         if nutype=='int8':
             print(" it seems likely that int8 is not optimized in cupy ")
         self.gpu_indices = gpu_indices
-        self.n_gpu = len(self.gpu_indices)
+        self.n_gpu = max(self.gpu_indices)+1
         self.streams = [None] * self.n_gpu
         self.x = [None] * self.n_gpu
         self.y = [None] * self.n_gpu
         self.nutype = nutype
         for gpu_id in self.gpu_indices:
             with cp.cuda.Device(gpu_id):
-                self.y[gpu_id]=cp.asarray(y.reshape(-1,1).T,dtype='float32')
+                self.y[gpu_id]=cp.asarray(y.reshape(-1,1).T,dtype=y.dtype)
                 self.x[gpu_id]=cp.asarray(x,dtype=self.nutype)
                 self.streams[gpu_id] = cp.cuda.stream.Stream()
     
@@ -328,6 +328,114 @@ class nu_dft_cupy:
             tyf = cp.sqrt(yf.real*yf.real+yf.imag*yf.imag)>threshold
 
         return yf[tyf],f[tyf.flatten(),:],yfu,yfuc
+
+    def process_inv(self,yf,f,gpu_id,NMAXT=8):
+        '''
+        Calculates the approximate inverse Fourier transform.
+        Args:
+            yf: The value of the Fourier transform. We expect a threshold to be applied. Shape Mx1.
+            f: The frequencies for the given value. We expect a threshold to be applied. Shape d*M.
+            gpu_id: What GPU to run on.
+            NMAXT: Subset of frequency space to process in one bunch.
+
+        Returns:
+            syc: Imaginary values of the approximate inverse Fourier transform. Shape 1xN.
+            cyc: Real values of the approximate inverse Fourier transform. Shape 1xN.        
+        '''
+        M = f.shape[0]
+
+        if len(yf.shape)<2:
+            yf=yf.reshape(-1,1)
+        
+        with cp.cuda.Device(gpu_id):
+            if self.nutype=='float16':
+                # inverse transform
+                wc=cp.asarray(2*np.pi*f.T,dtype='float16')
+            elif self.nutype=='int8':
+                wc=cp.asarray(f.T,dtype='int8')
+            else:
+                # inverse transform
+                wc=cp.asarray(2*np.pi*f.T,dtype='float32')
+                print(" default is float32 ")
+            self.streams[gpu_id].use()
+            ny=cp.zeros((self.N,1),dtype='complex128')
+            if self.N>NMAXT:
+
+                for i in cp.arange(int(self.N/NMAXT)):
+                    if i==0:
+                        print(" Diagnostics ")                        
+                        print(self.x[gpu_id].shape)
+                        print(wc.shape)
+                        print(wc[:,:4])
+                        print(self.x[gpu_id][:4,:])
+                        print(wc[:,-4:])
+                        print(self.x[gpu_id][-4:,:])                        
+                    if not self.nutype=='int8':
+                        wxc=cp.zeros((NMAXT,M),dtype='float32')
+                        wxc=cp.matmul(self.x[gpu_id][(i)*NMAXT:(i+1)*NMAXT,:],wc[:,:])
+                    else:
+                        wxc=cp.zeros((NMAXT,M),dtype='int32')
+                        wxc=cp.matmul(self.x[gpu_id][(i)*NMAXT:(i+1)*NMAXT,:],wc[:,:])
+                    self.streams[gpu_id].synchronize()
+                    if i==0:
+                        print(" Diagnostics ")
+                        print(wxc)
+                    if not self.nutype=='int8':
+                        cc=cp.cos(wxc)
+                        sc=cp.sin(wxc)
+                    else:
+                        # inverse transform
+                        cc=cp.cos(1*np.pi*wxc/128)
+                        sc=cp.sin(1*np.pi*wxc/128)
+                    self.streams[gpu_id].synchronize()
+                    if i==0:
+                        print(" Diagnostics ")
+                        print(cc)
+                        print(yf)
+                        print(cp.matmul(cc[:,:],yf))
+                    ny[i*NMAXT:(i+1)*NMAXT,:]=cp.matmul(cc[:,:],yf).astype('complex128')+cp.matmul(sc[:,:],yf).astype('complex128')*1j
+
+                if int(self.N/NMAXT)*NMAXT<NMAXT:
+
+                    if not self.nutype=='int8':
+                        wxc=cp.matmul(self.x[gpu_id][int(self.N/NMAXT)*NMAXT:,:],wc[:,:])
+                        
+                    else:
+                        wxc=cp.matmul(self.x[gpu_id][int(self.N/NMAXT)*NMAXT:,:],wc[:,:])
+                        
+
+                    self.streams[gpu_id].synchronize()
+                    if not self.nutype=='int8':
+                        cc=cp.cos(wxc)
+                        sc=cp.sin(wxc)
+                    else:
+                        cc=cp.cos(1*np.pi*wxc/128)
+                        sc=cp.sin(1*np.pi*wxc/128)
+                    self.streams[gpu_id].synchronize()
+
+                    ny[:,int(self.N/NMAXT)*NMAXT:]=cp.matmul(cc[:,:],yf).astype('complex128')+cp.matmul(sc[:,:],yf).astype('complex128')*1j
+                    
+            else:
+
+                if not self.nutype=='int8':
+                    wxc=cp.matmul(self.x[gpu_id],wc)
+                else:
+
+                    wxc=cp.matmul(self.x[gpu_id],wc)
+                self.streams[gpu_id].synchronize()
+                if not self.nutype=='int8':
+                    cc=cp.cos(wxc)
+                    sc=cp.sin(wxc)
+                else:
+                    cc=cp.cos(1*np.pi*wxc/128)
+                    sc=cp.sin(1*np.pi*wxc/128)
+                self.streams[gpu_id].synchronize()
+                ny=cp.matmul(cc[:,:],yf).astype('complex128')+cp.matmul(sc[:,:],yf).astype('complex128')*1j
+            self.streams[gpu_id].synchronize()
+            return ny
+
+
+            
     
     def process(self,f,gpu_id):
         '''Calculates the approximate Fourier transform.
@@ -368,6 +476,9 @@ class nu_dft_cupy:
                         wxc=cp.zeros((self.N,self.MAXT),dtype='int16')
                         wxc=cp.matmul(self.x[gpu_id],wc[:,i*self.MAXT:(i+1)*self.MAXT])
                     self.streams[gpu_id].synchronize()
+                    if i==0:
+                        print(" Diagnostics ")
+                        print(wxc)
                     if not self.nutype=='int8':
                         cc=cp.cos(wxc)
                         sc=cp.sin(wxc)
