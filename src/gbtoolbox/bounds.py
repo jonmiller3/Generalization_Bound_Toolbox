@@ -157,7 +157,8 @@ def est_spec_norm(w: np.array, yf: np.array, B=None, mask=None) -> float:
     else:
         V = np.prod(B)
     
-    
+
+    print(" this is assuming that only {} points are tested, not that other poitns are tested and 0".format(yf.shape[0]))
     # JAM, should this be w2yf.shape[0]
     fac = V/yf.shape[0] # volume over total number of points
     return np.sum(w2yf)*fac*np.sqrt(2*np.pi)**d
