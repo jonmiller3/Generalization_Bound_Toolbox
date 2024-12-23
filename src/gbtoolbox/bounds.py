@@ -5,11 +5,35 @@ from ctypes import *
 from numpy.ctypeslib import ndpointer
 import scipy.optimize as opt
 from geomloss import SamplesLoss
+import platform
+if platform.system() == "Windows":
+    loadC=False
+    def _get_ztw(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11):
+        return    
+else:
+    try:
+        loadC=True
+        ztw_c = CDLL(r'libztw.so')
+        _gen_ztw = ztw_c.gen_ztw
+        _gen_ztw.argtypes = [
+            c_int,# m
+            c_int,# d
+            c_int,# k
+            ndpointer(np.float64, flags="C_CONTIGUOUS"),# zv
+            ndpointer(np.float64, flags="C_CONTIGUOUS"),# wv
+            ndpointer(np.float64, flags="C_CONTIGUOUS"),# tv
+            ndpointer(np.float64, flags="C_CONTIGUOUS"),# sv
+            ndpointer(np.float64, flags="C_CONTIGUOUS"),# w
+            ndpointer(np.float64, flags="C_CONTIGUOUS"),# wftm
+            ndpointer(np.float64, flags="C_CONTIGUOUS"),# wfta
+            ndpointer(np.float64, flags="C_CONTIGUOUS")# magw
+        ]
 
 
-ztw_c = CDLL(r'libztw.so')
-
-
+    except:
+        loadC=False
+        def _get_ztw(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11):
+            return
     
 
 def est_spec_norm_from_data(x: np.array, y: np.array, B: np.array, f: np.array, S: np.array, nu_type='nu_dft_fast', threshold=0.0) -> float:
@@ -372,22 +396,6 @@ def nn_wnorm(weights):
     
     return th,na
 
-_gen_ztw = ztw_c.gen_ztw
-_gen_ztw.argtypes = [
-    c_int,# m
-    c_int,# d
-    c_int,# k
-    ndpointer(np.float64, flags="C_CONTIGUOUS"),# zv
-    ndpointer(np.float64, flags="C_CONTIGUOUS"),# wv
-    ndpointer(np.float64, flags="C_CONTIGUOUS"),# tv
-    ndpointer(np.float64, flags="C_CONTIGUOUS"),# sv
-    ndpointer(np.float64, flags="C_CONTIGUOUS"),# w
-    ndpointer(np.float64, flags="C_CONTIGUOUS"),# wftm
-    ndpointer(np.float64, flags="C_CONTIGUOUS"),# wfta
-    ndpointer(np.float64, flags="C_CONTIGUOUS")# magw
-    
-]
-
 class E_pdf:
     def __init__(self, FT, w):   
         '''
@@ -491,6 +499,10 @@ class E_pdf:
         '''
         Same thing as gen_ztw, but implemented using c and far faster.
         '''
+        if not loadC:
+            print(" C library not loaded, using get_ztw ")
+            return self.gen_ztw(m)
+        
         d = self.w_f.shape[0]
         k = self.w_f.shape[1]
         magw = self.magw_f

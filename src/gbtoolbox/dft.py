@@ -8,28 +8,88 @@ try:
 except:
     print(" cupy not imported ")
 
-misc_wrapper = CDLL(r'libft.so')
+import platform
+if platform.system() == "Windows":
+    loadC=False
+    def _nu_dft_e(a1,a2,a3,a4,a5,a6,a7):
+        return
+    def _nu_dft(a1,a2,a3,a4,a5,a6,a7):
+        return        
+else:
+    try:
+        misc_wrapper = CDLL(r'libft.so')
 
-_nu_dft = misc_wrapper.nu_dft
-_nu_dft.argtypes = [ndpointer(np.float64, flags="C_CONTIGUOUS"),
-    c_int,
-    c_int,
-    ndpointer(np.float64, flags="C"),
-    ndpointer(np.float64, flags="C_CONTIGUOUS"),
-    c_int,
-    ndpointer(np.complex128, flags="C_CONTIGUOUS"),
-]
+        _nu_dft = misc_wrapper.nu_dft
+        _nu_dft.argtypes = [ndpointer(np.float64, flags="C_CONTIGUOUS"),
+                            c_int,
+                            c_int,
+                            ndpointer(np.float64, flags="C"),
+                            ndpointer(np.float64, flags="C_CONTIGUOUS"),
+                            c_int,
+                            ndpointer(np.complex128, flags="C_CONTIGUOUS"),
+                            ]
 
-_nu_dft_e = misc_wrapper.nu_dft_e
-_nu_dft_e.argtypes = [ndpointer(np.float64, flags="C_CONTIGUOUS"),
-    c_int,
-    c_int,
-    ndpointer(np.float64, flags="C"),
-    ndpointer(np.float64, flags="C_CONTIGUOUS"),
-    c_int,
-    ndpointer(np.complex128, flags="C_CONTIGUOUS"),
-]
+        _nu_dft_e = misc_wrapper.nu_dft_e
+        _nu_dft_e.argtypes = [ndpointer(np.float64, flags="C_CONTIGUOUS"),
+                              c_int,
+                              c_int,
+                              ndpointer(np.float64, flags="C"),
+                              ndpointer(np.float64, flags="C_CONTIGUOUS"),
+                              c_int,
+                              ndpointer(np.complex128, flags="C_CONTIGUOUS"),
+                            ]
+        loadC = True
+    except:
+        def _nu_dft_e(a1,a2,a3,a4,a5,a6,a7):
+            return
+        def _nu_dft(a1,a2,a3,a4,a5,a6,a7):
+            return                
+        loadC = False
 
+if platform.system()=='Darwin':
+    try:
+        import mlx.core as mx
+        def mlx_nu_dft(x: mx.array, y: mx.array, f: mx.array, GROUP_SIZE: int = 1024, DEVICE = mx.gpu) -> (mx.array, mx.array):
+            '''
+            Args:
+            x: Nxd array of arbitrary input vectors, each row being a vector of dimension d in float16
+            y: Nx1 array of function values at x in float16
+            f: A Mxd array of arbitrary frequency vectors in float16
+            GROUP_SIZE: parameter to say how the calculation is grouped
+            DEVICE: device to calculate on
+            Returns:
+            Mx1 array representing the real DFT of the function in float16
+            Mx1 array representing the imag DFT of the function in float16
+            '''
+            if (len(y.shape)==1): # common mistake                                                                                                                                                                  
+                y = y.reshape(y.shape[0],1)
+
+            w = mx.transpose(-2.0*np.pi*f)
+    
+            N = x.shape[0]
+            M = f.shape[0]//GROUP_SIZE
+
+            yfr = mx.zeros((f.shape[0],1),dtype=mx.float16)
+            yfi = mx.zeros((f.shape[0],1),dtype=mx.float16)
+
+            for i in range(M):
+                tmp = mx.matmul(x,w[:,i*GROUP_SIZE:(i+1)*GROUP_SIZE],stream=DEVICE).squeeze()
+                yfr[i*GROUP_SIZE:(i+1)*GROUP_SIZE,0] = mx.sum(y*mx.cos(tmp,stream=DEVICE),axis=0,stream=DEVICE)
+                yfi[i*GROUP_SIZE:(i+1)*GROUP_SIZE,0] = mx.sum(y*mx.sin(tmp,stream=DEVICE),axis=0,stream=DEVICE)
+            i = M
+            ii = f.shape[0]
+            if ii>i*GROUP_SIZE:
+                tmp = mx.matmul(x,w[:,i*GROUP_SIZE:ii],stream=DEVICE).squeeze()
+                yfr[i*GROUP_SIZE:,0] = mx.sum(y*mx.cos(tmp,stream=DEVICE),axis=0,stream=DEVICE)
+                yfi[i*GROUP_SIZE:,0] = mx.sum(y*mx.sin(tmp,stream=DEVICE),axis=0,stream=DEVICE)    
+                
+            return yfr,yfi
+    except:
+        def mlx_nu_dft(a1,a2,a3,a4):
+            print(" No MLX on this system ")
+            return np.array([]),np.array([])
+
+        
 def threshold_mask(yf: np.array, ns: int, th: float) -> np.array:
     ''' Applies the threshold for approximate FT based on samplesize and
         threshold multiplier.
@@ -61,6 +121,10 @@ def nu_dft_fast(x: np.array, y: np.array, f: np.array) -> np.array:
     '''Same as nu_dft, but implemented in c. It's 2-3 times faster but fundamentally
     an order n*m operation. You must build the c version using the included Makefile.
     '''
+    if not loadC:
+        print(" C not loaded, using nu_dft")
+        return nu_dft(x,y,f)
+    
     if (len(y.shape)==1): # common mistake
         y = y.reshape(y.shape[0],1)
 
@@ -77,6 +141,10 @@ def nu_dft_faster(x: np.array, y: np.array, f: np.array) -> np.array:
     with caution. About 2x as fast as nu_dft_fast. You must build the c version
     using the included Makefile.
     '''
+    if not loadC:
+        print(" C not loaded, using nu_dft")
+        return nu_dft(x,y,f)
+    
     if (len(y.shape)==1): # common mistake
         y = y.reshape(y.shape[0],1)
 
@@ -88,7 +156,7 @@ def nu_dft_faster(x: np.array, y: np.array, f: np.array) -> np.array:
     _nu_dft_e(x,c_int(N),c_int(D),y,f,c_int(M),yf)
     return yf
 
-def nu_dft(x: np.array, y: np.array, f: np.array) -> np.array:
+def nu_dft(x: np.array, y: np.array, f: np.array, GROUP_SIZE: int = 1024) -> np.array:
     '''Directly computes in the DFT for non-uniformly sampled inputs
        and non-uniformly sampled frequency vectors
 
@@ -100,6 +168,7 @@ def nu_dft(x: np.array, y: np.array, f: np.array) -> np.array:
                dimension d
             y: Nx1 array of function values at x
             f: A Mxd array of arbitrary frequency vectors
+            GROUP_SIZE: size to group calculation
        Returns:
             Mx1 array representing the DFT of the function
 
@@ -114,15 +183,16 @@ def nu_dft(x: np.array, y: np.array, f: np.array) -> np.array:
     
     dt = np.complex128 if y.dtype==np.complex128 or y.dtype==np.float64 else np.complex64
     yf = np.zeros((M,1),dtype=dt)
-    
-    for i in range(M):
-        tmp = np.matmul(x,np.transpose(w[i,:]))[:,None]
-        yf[i] = np.sum(y*np.exp(tmp))
 
-    # the following is correct, but the array arg gets too big
-    # arg = np.matmul(x,np.transpose(w))
-    # yf = np.sum(y*np.exp(arg),axis=0)[:,None]
+    MM = M//GROUP_SIZE
+
     
+    for i in range(MM):
+        tmp = np.matmul(x,np.transpose(w[i*GROUP_SIZE:(i+1)*GROUP_SIZE,:])).squeeze()
+        yf[i*GROUP_SIZE:(i+1)*GROUP_SIZE,0] = np.sum(y*np.exp(tmp),axis=0)
+    if M>MM*GROUP_SIZE:
+        tmp = np.matmul(x,np.transpose(w[MM*GROUP_SIZE:,:])).squeeze()
+        yf[MM*GROUP_SIZE:,0] = np.sum(y*np.exp(tmp),axis=0)        
     return yf
 
 def dft_on_vector(x,y,u,w):
@@ -325,7 +395,7 @@ class nu_dft_cupy:
             mff, eff = cp.frexp(np.sum(np.abs(f),axis=1).flatten())
             fsum = cp.ldexp(cp.around(mff,1),eff)
             yfu, yfuc = cp.unique(fsum, return_counts=True)
-            tyf = cp.sqrt(yf.real*yf.real+yf.imag*yf.imag)>threshold
+            tyf = cp.sqrt(yf.real*yf.real-yf.imag*yf.imag)>threshold
 
         return yf[tyf],f[tyf.flatten(),:],yfu,yfuc
     
