@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gbtoolbox"
-version = "0.0.4"
+version = "0.0.5"
 authors = [
   { name="Jonathan Miller", email="jon@euler-sci.com" },
   { name="Thomas Reinke", email="tom@euler-sci.com" },
