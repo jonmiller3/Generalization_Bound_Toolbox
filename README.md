@@ -12,9 +12,13 @@ For directions on use, check out
 
 # Installation
 
-A release version is availalbe on PyPI. 
+A release version is availalbe on PyPI. Currently requires Python version less than 3.12 and greater than 3.7.
 
     pip install gbtoolbox
+
+    pip install gbtoolbox[GPU11]
+
+    pip install gbtoolbox[GPU12]    
 
 The following should be performed to manually install. See pyproject.toml for dependencies.
 
