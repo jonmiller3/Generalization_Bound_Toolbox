@@ -25,6 +25,11 @@ dependencies = [
   "geomloss>=0.2.6",
 ]
 
+[tool.hatch.build]
+exclude = [
+  "/tests",
+]
+
 [project.optional-dependencies]
 gpu11 = ["cupy-cuda11x"]
 gpu12 = ["cupy-cuda12x"]
